@@ -1,0 +1,24 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"iostream": "cpp",
+			"tuple": "cpp",
+			"core": "cpp",
+			"valarray": "cpp",
+			"nnls": "cpp",
+			"algorithm": "cpp",
+			"*.ipp": "cpp",
+			"*.tcc": "cpp",
+			"memory_resource": "cpp",
+			"memory": "cpp",
+			"rope": "cpp",
+			"streambuf": "cpp",
+			"regex": "cpp"
+		}
+	}
+}

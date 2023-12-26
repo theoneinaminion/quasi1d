@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/home/aditya/petsc/**",
+                "/home/aditya/scotch_install/**",
+                "/home/aditya/eigen"
+            ],
+            "defines": [],
+            // "cStandard": "c17",
+            // "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64",
+            "compilerPath": "/usr/bin/g++"
+        }
+    ],
+    "version": 4
+}
