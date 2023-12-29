@@ -15,7 +15,7 @@
 #  For a multi-file case, suppose you have the source files a.c, b.c, and c.cxx
 #  This can be built by uncommenting the following two lines.
 #
-exec : givendata.o utilities.o initialize.o physics.o main.o
+exec : space.o main.o 
 		$(LINK.C) -o $@ $^ $(LDLIBS)
 
 #
