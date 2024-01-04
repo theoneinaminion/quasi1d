@@ -25,8 +25,9 @@ int main(int argc,char **argv){
     flux flx(msh,pr);
     ierr = flx.initialize_primitives();
     ierr = flx.assemble_conservative_vec();
+    ierr = flx.assemble_flux_vec();
     //std::cout << flw.pr << std::endl;
-    VecView(flx.w,PETSC_VIEWER_STDOUT_SELF);
+    VecView(flx.f,PETSC_VIEWER_STDOUT_SELF);
 
     
 

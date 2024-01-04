@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <numeric>
 #include "petscksp.h"
 #include "petscmath.h"
 
@@ -115,10 +116,12 @@ class flux:public flow {
     virtual ~flux();
     Vec f; /**< Flux vector*/
     Vec w; /**< Conservative variables vector*/
+    Vec q; /**< Source vector*/
     Mesh mesh; /**< Mesh object*/
 
     Vec f_elem; /**< Flux vector at each element*/
     Vec w_elem; /**< Conservative variables vector at each element*/
+    Vec q_elem; /**< Source vector at each element*/
 
     PetscScalar epsilon = 0.08; /**< Scalar Dissipation*/
 
@@ -161,6 +164,22 @@ class flux:public flow {
 
     PetscErrorCode conserved_to_primitive();
 
+    /**
+     * @brief Element source term vector.
+     * 
+     */
+    PetscErrorCode element_source(const PetscInt &elem);
+
+    /**
+     * @brief Assemble source vector in the entire domain.
+     * 
+     */
+    PetscErrorCode assemble_source_vec();
+
+    /**
+     * @brief Element flux Jacobian.
+     * 
+     */
    
 
 
