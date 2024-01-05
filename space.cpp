@@ -146,12 +146,17 @@ flux::flux(const Mesh &msh, const PetscScalar p_ratio):flow(msh,p_ratio) {
      */
 
     mesh = msh; //Assigning the mesh object in the flux class
-    
+    felem = new PetscScalar[mesh.nvars];
+    welem = new PetscScalar[mesh.nvars];
+    qelem = new PetscScalar[mesh.nvars];
+
+    fel_jacob = new PetscScalar[mesh.nvars*mesh.nvars];
+
     VecCreateSeq(PETSC_COMM_SELF,mesh.ngrid*mesh.nvars,&f);
     VecCreateSeq(PETSC_COMM_SELF,mesh.ngrid*mesh.nvars,&w);
     VecCreateSeq(PETSC_COMM_SELF,mesh.ngrid*mesh.nvars,&q);
-    VecCreateSeq(PETSC_COMM_SELF,mesh.nvars,&w_elem);
-    VecCreateSeq(PETSC_COMM_SELF,mesh.nvars,&f_elem);
+    
+    
 }
 
 
@@ -170,13 +175,14 @@ flux::~flux() {
     ierr = VecDestroy(&w); 
     if(ierr)
 		std::cout << "Couldn't destroy w!\n";
+    ierr = VecDestroy(&q); 
+    if(ierr)
+		std::cout << "Couldn't destroy q!\n";
 
-    ierr = VecDestroy(&w_elem); 
-    if(ierr)
-		std::cout << "Couldn't destroy welem!\n";
-    ierr = VecDestroy(&f_elem); 
-    if(ierr)
-		std::cout << "Couldn't destroy felem!\n";
+    
+    delete [] felem;
+    delete [] welem;
+    delete [] qelem;
 } 
 
     
@@ -210,25 +216,16 @@ PetscErrorCode flux::element_conservative(const PetscInt &elem){
     * 
     */
     PetscErrorCode ierr;
-    PetscInt idx[mesh.nvars]; 
-    for (int i = 0; i < mesh.nvars; i++) {
-        idx[i] =i;
-    }
-    PetscScalar temp[mesh.nvars], rho_elem, u_elem, E_elem;
+    PetscScalar rho_elem, u_elem, E_elem;
 
-    ierr = VecSet(w_elem,0.0); CHKERRQ(ierr);
 
     ierr = VecGetValues(rho,1, &elem,&rho_elem); CHKERRQ(ierr);
     ierr = VecGetValues(u,1, &elem,&u_elem); CHKERRQ(ierr);
     ierr = VecGetValues(E,1, &elem,&E_elem); CHKERRQ(ierr);
 
-    temp[0] = rho_elem; 
-    temp[1] = rho_elem*u_elem;
-    temp[2] = E_elem;
-
-    ierr = VecSetValues(w_elem,mesh.nvars,idx,temp,INSERT_VALUES); CHKERRQ(ierr);
-    ierr = VecAssemblyBegin(w_elem); CHKERRQ(ierr);
-    ierr = VecAssemblyEnd(w_elem); CHKERRQ(ierr);
+    welem[0] = rho_elem; 
+    welem[1] = rho_elem*u_elem;
+    welem[2] = E_elem;
 
     return ierr;
     
@@ -243,8 +240,6 @@ PetscErrorCode flux::assemble_conservative_vec(){
      */
 
     PetscErrorCode ierr;  
-    PetscScalar temp[mesh.nvars];
-     
 
     ierr = VecSet(w,0.0); CHKERRQ(ierr);
 
@@ -252,14 +247,13 @@ PetscErrorCode flux::assemble_conservative_vec(){
 
         ierr = element_conservative(iel);
 
-        PetscInt idx[mesh.nvars] = {0,1,2};
-        ierr = VecGetValues(w_elem,mesh.nvars,idx,temp); CHKERRQ(ierr);
-
+        PetscInt idx[mesh.nvars];
+        
         for (int j = 0; j < mesh.nvars; j++)
         {
             idx[j] = iel*mesh.nvars + j;
         }
-        ierr = VecSetValues(w,mesh.nvars,idx,temp,INSERT_VALUES); CHKERRQ(ierr);
+        ierr = VecSetValues(w,mesh.nvars,idx,welem,INSERT_VALUES); CHKERRQ(ierr);
         
         
     }
@@ -277,28 +271,17 @@ PetscErrorCode flux::element_flux(const PetscInt &elem){
    *  
    */
     PetscErrorCode ierr;
-    ierr = VecSet(f_elem,0.0); CHKERRQ(ierr);
     PetscInt idx[mesh.nvars];
 
     for (int i = 0; i < mesh.nvars; i++) {
         idx[i] =elem*mesh.nvars + i;
     }
-    PetscScalar temp[mesh.nvars],welem[mesh.nvars];
     ierr = VecGetValues(w, mesh.nvars, idx, welem); CHKERRQ(ierr);
 
     //Components of flux vector
-    temp[0] = welem[0];
-    temp[1] = welem[1]/welem[0];
-    temp[2] = (gamma-1)*(welem[2] - 0.5*welem[0]*pow(temp[1],2));
-
-    for (int i = 0; i < mesh.nvars; i++) {
-        idx[i] = i;
-    }
-    
-    ierr = VecSetValues(f_elem,mesh.nvars,idx,temp,INSERT_VALUES); CHKERRQ(ierr);
-    ierr = VecAssemblyBegin(f_elem); CHKERRQ(ierr);
-    ierr = VecAssemblyEnd(f_elem); CHKERRQ(ierr);
-
+    felem[0] = welem[0];
+    felem[1] = welem[1]/welem[0];
+    felem[2] = (gamma-1)*(welem[2] - 0.5*welem[0]*pow(felem[1],2));
     return ierr;
 
 
@@ -312,23 +295,20 @@ PetscErrorCode flux::assemble_flux_vec(){
      */
 
     PetscErrorCode ierr;  
-    PetscScalar temp[mesh.nvars];
-     
-
+    PetscInt idx[mesh.nvars];
+    
     ierr = VecSet(f,0.0); CHKERRQ(ierr);
 
     for (int iel = 0; iel < mesh.ngrid; iel++) {
 
       ierr = element_flux(iel);
 
-      PetscInt idx[mesh.nvars] = {0,1,2};
-      ierr = VecGetValues(f_elem,mesh.nvars,idx,temp); CHKERRQ(ierr);
-
+     
       for (int j = 0; j < mesh.nvars; j++)
       {
           idx[j] = iel*mesh.nvars + j;
       }
-        ierr = VecSetValues(f,mesh.nvars,idx,temp,INSERT_VALUES); CHKERRQ(ierr);
+        ierr = VecSetValues(f,mesh.nvars,idx,felem,INSERT_VALUES); CHKERRQ(ierr);
         
         
     }
@@ -347,7 +327,7 @@ PetscErrorCode flux::conserved_to_primitive(){
 
   PetscErrorCode ierr;
   PetscInt idx[mesh.nvars];
-  PetscScalar welem[mesh.nvars], relem,pelem,uelem,Eelem,celem, var;
+  PetscScalar relem,pelem,uelem,Eelem,celem, var;
 
   for (int iel = 0; iel < mesh.ngrid; iel++)
   {
@@ -398,13 +378,8 @@ PetscErrorCode flux:: element_source(const PetscInt &elem){
    *  
    */
     PetscErrorCode ierr;
-    PetscInt idx[mesh.nvars];
-    PetscScalar qelem[mesh.nvars],pelem, si, sm;
-    ierr = VecSet(q_elem,0.0); CHKERRQ(ierr);
-    
-    for (int i = 0; i < mesh.nvars; i++) {
-        idx[i] =elem*mesh.nvars + i;
-    }
+    PetscScalar pelem, si, sm;
+ 
 
     ierr = VecGetValues(p, 1, &elem, &pelem); CHKERRQ(ierr);
     ierr = VecGetValues(mesh.sc, 1, &elem, &si); CHKERRQ(ierr);
@@ -415,12 +390,6 @@ PetscErrorCode flux:: element_source(const PetscInt &elem){
     qelem[1] = pelem*(si-sm);
     qelem[2] = 0;
     
-    for (int i = 0; i < mesh.nvars; i++) {
-        idx[i] = i;
-    }
-    ierr = VecSetValues(q_elem,mesh.nvars,idx,qelem,INSERT_VALUES); CHKERRQ(ierr);
-    ierr = VecAssemblyBegin(q_elem); CHKERRQ(ierr);
-    ierr = VecAssemblyEnd(q_elem); CHKERRQ(ierr);
     return ierr;
 
 }
@@ -430,14 +399,12 @@ PetscErrorCode flux::assemble_source_vec(){
   PetscErrorCode ierr;
   ierr = VecSet(q,0.0); CHKERRQ(ierr);
 
-  for (int iel = 0; iel < mesh.ngrid; iel++) {
+  for (int iel = 1; iel < mesh.ngrid-1; iel++) {
 
     PetscInt idx[mesh.nvars];
-    PetscScalar qelem[mesh.nvars];
     ierr = element_source(iel);
-    ierr = VecGetValues(q_elem,mesh.nvars,idx,qelem); CHKERRQ(ierr);
 
-    for (int j = 1; j < mesh.nvars-1; j++)
+    for (int j = 0; j < mesh.nvars; j++)
     {
         idx[j] = iel*mesh.nvars + j;
     }

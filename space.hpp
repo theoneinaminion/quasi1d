@@ -117,11 +117,13 @@ class flux:public flow {
     Vec f; /**< Flux vector*/
     Vec w; /**< Conservative variables vector*/
     Vec q; /**< Source vector*/
+    Mat A; /**< Implicit Operator*/
     Mesh mesh; /**< Mesh object*/
 
-    Vec f_elem; /**< Flux vector at each element*/
-    Vec w_elem; /**< Conservative variables vector at each element*/
-    Vec q_elem; /**< Source vector at each element*/
+    PetscScalar *felem; /**< Flux vector array at each element*/
+    PetscScalar *welem; /**< Conservative variables vector array at each element*/
+    PetscScalar *qelem; /**< Source vector array at each element*/
+    PetscScalar *fel_jacob; /**< Flux Jacobian array at each element*/
 
     PetscScalar epsilon = 0.08; /**< Scalar Dissipation*/
 
@@ -180,6 +182,7 @@ class flux:public flow {
      * @brief Element flux Jacobian.
      * 
      */
+    PetscErrorCode element_flux_jacobian(const PetscInt &elem);
    
 
 
