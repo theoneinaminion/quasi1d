@@ -15,7 +15,7 @@
 #  For a multi-file case, suppose you have the source files a.c, b.c, and c.cxx
 #  This can be built by uncommenting the following two lines.
 #
-exec : space.o main.o 
+exec : space.o main.o time.o
 		$(LINK.C) -o $@ $^ $(LDLIBS)
 
 #
@@ -40,12 +40,14 @@ PACKAGES := $(petsc.pc)
 
 COMPILE.cc += -I include
 
+
 CC := $(shell pkg-config --variable=ccompiler $(PACKAGES))
 CXX := $(shell pkg-config --variable=cxxcompiler $(PACKAGES))
 FC := $(shell pkg-config --variable=fcompiler $(PACKAGES))
 CFLAGS_OTHER := $(shell pkg-config --cflags-only-other $(PACKAGES))
 CFLAGS := $(shell pkg-config --variable=cflags_extra $(PACKAGES)) $(CFLAGS_OTHER)
 CXXFLAGS := $(shell pkg-config --variable=cxxflags_extra $(PACKAGES)) $(CFLAGS_OTHER)
+CXXFLAGS += -I$(EIGEN3_ROOT)
 FFLAGS := $(shell pkg-config --variable=fflags_extra $(PACKAGES))
 CPPFLAGS := $(shell pkg-config --cflags-only-I $(PACKAGES))
 LDFLAGS := $(shell pkg-config --libs-only-L --libs-only-other $(PACKAGES))
@@ -55,6 +57,7 @@ CUDAC := $(shell pkg-config --variable=cudacompiler $(PACKAGES))
 CUDAC_FLAGS := $(shell pkg-config --variable=cudaflags_extra $(PACKAGES))
 CUDA_LIB := $(shell pkg-config --variable=cudalib $(PACKAGES))
 CUDA_INCLUDE := $(shell pkg-config --variable=cudainclude $(PACKAGES))
+
 
 print:
 	@echo CC=$(CC)
