@@ -114,25 +114,25 @@ flow::~flow() {
     std::cout << "Destroying flow object\n";
     ierr = VecDestroy(&p);
     if(ierr)
-		std::cout << "Couldn't destroy p!\n";
+		  std::cout << "Couldn't destroy p!\n";
     ierr = VecDestroy(&T);
     if(ierr)
-		std::cout << "Couldn't destroy T!\n";
+		  std::cout << "Couldn't destroy T!\n";
     ierr = VecDestroy(&rho);
     if(ierr)
-		std::cout << "Couldn't destroy rho!\n";
+		  std::cout << "Couldn't destroy rho!\n";
     ierr = VecDestroy(&u);
     if(ierr)
-		std::cout << "Couldn't destroy u!\n";
+		  std::cout << "Couldn't destroy u!\n";
     ierr = VecDestroy(&c);
     if(ierr)
-		std::cout << "Couldn't destroy c!\n";
+		  std::cout << "Couldn't destroy c!\n";
     ierr = VecDestroy(&E);
     if(ierr)
-		std::cout << "Couldn't destroy E!\n";
+		  std::cout << "Couldn't destroy E!\n";
     ierr = VecDestroy(&M);
     if(ierr)
-		std::cout << "Couldn't destroy M!\n";
+		  std::cout << "Couldn't destroy M!\n";
 } 
 #endif
 
@@ -151,10 +151,37 @@ flux::flux(const Mesh &msh, const PetscScalar p_ratio):flow(msh,p_ratio) {
     qelem = new PetscScalar[mesh.nvars];
 
     fel_jacob = new PetscScalar[mesh.nvars*mesh.nvars];
+    PetscInt ierr; 
 
-    VecCreateSeq(PETSC_COMM_SELF,mesh.ngrid*mesh.nvars,&f);
-    VecCreateSeq(PETSC_COMM_SELF,mesh.ngrid*mesh.nvars,&w);
-    VecCreateSeq(PETSC_COMM_SELF,mesh.ngrid*mesh.nvars,&q);
+    std::cout << "Constructing System Vectors"<<std::endl;
+
+    ierr = VecCreateSeq(PETSC_COMM_SELF,mesh.ngrid*mesh.nvars,&f);
+    if(ierr)
+		  std::cout << "Couldn't create f!\n";
+    ierr = VecCreateSeq(PETSC_COMM_SELF,mesh.ngrid*mesh.nvars,&w);
+    if(ierr)
+		  std::cout << "Couldn't create w!\n";
+    ierr = VecCreateSeq(PETSC_COMM_SELF,mesh.ngrid*mesh.nvars,&q);
+    if(ierr)
+		  std::cout << "Couldn't create w!\n";
+
+    std::cout << "Constructing System Matrix"<<std::endl;
+
+    ierr = MatCreate(PETSC_COMM_SELF,&A);
+    if(ierr)
+		  std::cout << "Couldn't create implicit matrix A!\n";
+    ierr = MatSetType(A,MATSEQBAIJ);
+    if(ierr)
+		  std::cout << "Couldn't set type of A!\n";
+    ierr = MatSetSizes(A,PETSC_DECIDE,PETSC_DECIDE,mesh.nvars,mesh.nvars);
+    if(ierr)
+		  std::cout << "Couldn't set sizes of A!\n";
+    ierr = MatSetBlockSize(A,mesh.nvars);
+    if(ierr)
+		  std::cout << "Couldn't set block size of A!\n";
+    ierr = MatSetUp(A);
+    if(ierr)
+		  std::cout << "Couldn't set up internal data structures of A!\n";
     
     
 }
@@ -171,13 +198,16 @@ flux::~flux() {
     int ierr;
     ierr = VecDestroy(&f); 
     if(ierr)
-		std::cout << "Couldn't destroy f!\n";
+		  std::cout << "Couldn't destroy f!\n";
     ierr = VecDestroy(&w); 
     if(ierr)
-		std::cout << "Couldn't destroy w!\n";
+		  std::cout << "Couldn't destroy w!\n";
     ierr = VecDestroy(&q); 
     if(ierr)
-		std::cout << "Couldn't destroy q!\n";
+		  std::cout << "Couldn't destroy q!\n";
+    ierr = MatDestroy(&A);
+    if(ierr)
+      std::cout << "Couldn't destroy A!\n";
 
     
     delete [] felem;
@@ -419,6 +449,28 @@ PetscErrorCode flux::assemble_source_vec(){
 
 }
 
+PetscErrorCode flux::element_flux_jacobian(const PetscScalar &dt, const PetscInt &elem)
+{
+ 
+  Eigen::Matrix<PetscScalar, Eigen::Dynamic, Eigen::Dynamic, RowMajor> L;
+  L.resize(mesh.nvars,mesh.nvars);
+  PetscErrorCode ierr;
+  PetscInt idx[mesh.nvars];
+  for (int i = 0; i < mesh.nvars; i++)
+  {
+    for (int j = 0; j < mesh.nvars; j++)
+    {
+      L(i,j) = 2*i+j+elem;
+    }
+    idx[i] = i;
+  }
+
+  ierr = MatSetValues(A,mesh.nvars,idx,mesh.nvars, idx, L.data(),INSERT_VALUES); CHKERRQ(ierr);
+  ierr = MatAssemblyBegin(A,MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);CHKERRQ(ierr);
+  ierr = MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);CHKERRQ(ierr);
+  return ierr;
+
+}
 
 
 

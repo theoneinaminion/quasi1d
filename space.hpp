@@ -6,6 +6,9 @@
 #include <numeric>
 #include "petscksp.h"
 #include "petscmath.h"
+#include <Eigen/Core>
+using Eigen::Matrix;
+using Eigen::RowMajor;
 
 
 class Mesh {
@@ -125,6 +128,10 @@ class flux:public flow {
     PetscScalar *qelem; /**< Source vector array at each element*/
     PetscScalar *fel_jacob; /**< Flux Jacobian array at each element*/
 
+    Eigen::Matrix<PetscScalar, Eigen::Dynamic, Eigen::Dynamic, RowMajor> L; /**<Lower Triangular Jacobian part of an element*/
+    Eigen::Matrix<PetscScalar, Eigen::Dynamic, Eigen::Dynamic, RowMajor> D; /*<Diagonal Jacobian part of an element*/
+    Eigen::Matrix<PetscScalar, Eigen::Dynamic, Eigen::Dynamic, RowMajor> U; /*<Upper Triangular Jacobian part of an element*/
+
     PetscScalar epsilon = 0.08; /**< Scalar Dissipation*/
 
     /**
@@ -179,10 +186,11 @@ class flux:public flow {
     PetscErrorCode assemble_source_vec();
 
     /**
-     * @brief Element flux Jacobian.
-     * 
+     * @brief Element flux Jacobian components i.e. D, L, U at a given element.
+     * @param dt Time step
+     * @param elem Element number
      */
-    PetscErrorCode element_flux_jacobian(const PetscInt &elem);
+    PetscErrorCode element_flux_jacobian(const PetscScalar &dt, const PetscInt &elem);
    
 
 
