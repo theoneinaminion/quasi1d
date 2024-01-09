@@ -1,6 +1,6 @@
 #include "time.hpp"
 
-Solver::Solver(flux &flux):flx(flux)
+Solver::Solver(flux* flux):flx(flux)
 {
     dt = 1e-6;
     CFL = 10;
@@ -9,10 +9,10 @@ Solver::Solver(flux &flux):flx(flux)
 
     //Setting up the vectors
     PetscErrorCode ierr;
-    ierr = VecCreateSeq(PETSC_COMM_SELF,flx.mesh.ngrid,&res);
+    ierr = VecCreateSeq(PETSC_COMM_SELF,flx->mesh.ngrid,&res);
     if(ierr)
         std::cout << "Couldn't create residual vector!\n";
-    ierr = VecCreateSeq(PETSC_COMM_SELF,flx.mesh.ngrid,&dw);
+    ierr = VecCreateSeq(PETSC_COMM_SELF,flx->mesh.ngrid,&dw);
     if(ierr)
         std::cout << "Couldn't create dw vector!\n";    
 
@@ -21,9 +21,8 @@ Solver::Solver(flux &flux):flx(flux)
     ierr = KSPCreate(PETSC_COMM_WORLD,&ksp);
     if(ierr)
 		std::cout << "Couldn't Create KSP object!\n";
-    ierr = KSPSetUp(ksp);
-    if(ierr)
-		std::cout << "Couldn't Setup Internal data structures of KSP object!\n";
+    
+    res_elem = new PetscScalar[flx->mesh.nvars];    
 
 }
 
@@ -39,8 +38,9 @@ Solver::~Solver()
     ierr = VecDestroy(&dw);
     if(ierr)
         std::cout << "Couldn't destroy dw vector!\n";
-    
-            
+    if (res_elem)
+        delete[] res_elem;
+  
 
 }
 
@@ -48,6 +48,20 @@ void Solver::new_time_step()
 {
     dt = prev_resnrm/resnrm;
     
+}
+
+PetscErrorCode Solver::setup_ksp(){
+
+    PetscErrorCode ierr;
+    PC pc;
+    ierr = KSPSetOperators(ksp,flx->A,flx->A); CHKERRQ(ierr);
+    ierr = KSPSetType(ksp,KSPPREONLY); CHKERRQ(ierr);
+    ierr = KSPGetPC(ksp,&pc); CHKERRQ(ierr);
+    ierr = PCSetType(pc,PCLU); CHKERRQ(ierr);
+    ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
+    ierr = KSPSetUp(ksp); CHKERRQ(ierr);
+    std::cout << "KSP Object setup complete"<<std::endl;
+    return ierr;
 }
 
 PetscErrorCode Solver::solve()
@@ -65,7 +79,7 @@ PetscErrorCode Solver::solve()
     /*
         flx.initialize_primitives();
         
-        set_operators();
+        ierr =setup_ksp();
         while (resnrm>tol)
         {
             prev_res = res;

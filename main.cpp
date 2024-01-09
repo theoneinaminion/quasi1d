@@ -36,18 +36,18 @@ int main(int argc,char **argv){
     msh.generate_grid();
     PetscScalar pr = 0.8; // Pressure ratio
     flux flx(msh,pr);
-    Solver slv(flx);
-    ierr = slv.flx.initialize_primitives();
-    ierr = slv.flx.assemble_conservative_vec();
-    ierr = slv.flx.assemble_flux_vec();
-    ierr = slv.flx.assemble_source_vec();
-    ierr = slv.flx.element_flux_jacobian(2.5, 0);
+    Solver slv(&flx);
+    ierr = slv.flx->initialize_primitives();
+    ierr = slv.flx->assemble_conservative_vec();
+    ierr = slv.flx->assemble_flux_vec();
+    ierr = slv.flx->assemble_source_vec();
+    ierr = slv.flx->element_flux_jacobian(0);
     //std::cout << flw.pr << std::endl;
     // for (int i = 0; i < flx.mesh.nvars; i++){
     //     std::cout << flx.qelem[i] << std::endl;
     // }
     //VecView(flx.q,PETSC_VIEWER_STDOUT_SELF);
-    MatView(slv.flx.A,PETSC_VIEWER_STDOUT_SELF);    
+    MatView(slv.flx->A,PETSC_VIEWER_STDOUT_SELF);    
     
 
     return ierr;

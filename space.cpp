@@ -149,10 +149,10 @@ flux::flux(const Mesh &msh, const PetscScalar p_ratio):flow(msh,p_ratio) {
     felem = new PetscScalar[mesh.nvars];
     welem = new PetscScalar[mesh.nvars];
     qelem = new PetscScalar[mesh.nvars];
+    Jel.resize(mesh.nvars,mesh.nvars);
+    Qel.resize(mesh.nvars,mesh.nvars); 
 
-    fel_jacob = new PetscScalar[mesh.nvars*mesh.nvars];
-    PetscInt ierr; 
-
+    PetscInt ierr;
     std::cout << "Constructing System Vectors"<<std::endl;
 
     ierr = VecCreateSeq(PETSC_COMM_SELF,mesh.ngrid*mesh.nvars,&f);
@@ -449,28 +449,70 @@ PetscErrorCode flux::assemble_source_vec(){
 
 }
 
-PetscErrorCode flux::element_flux_jacobian(const PetscScalar &dt, const PetscInt &elem)
+PetscErrorCode flux::element_flux_jacobian(const PetscInt &elem)
 {
- 
-  Eigen::Matrix<PetscScalar, Eigen::Dynamic, Eigen::Dynamic, RowMajor> L;
-  L.resize(mesh.nvars,mesh.nvars);
+ /**
+  * @brief Analytical jacobian for each element
+  * 
+  */
   PetscErrorCode ierr;
+  PetscScalar wel[mesh.nvars];
   PetscInt idx[mesh.nvars];
+
+  Jel = Eigen::MatrixXd::Zero(mesh.nvars,mesh.nvars);
   for (int i = 0; i < mesh.nvars; i++)
   {
-    for (int j = 0; j < mesh.nvars; j++)
-    {
-      L(i,j) = 2*i+j+elem;
-    }
-    idx[i] = i;
+    idx[i] = elem*mesh.nvars + i;
   }
+  ierr = VecGetValues(w,mesh.nvars,idx,wel); CHKERRQ(ierr);
+  
+  // The analytical Jacobian
 
-  ierr = MatSetValues(A,mesh.nvars,idx,mesh.nvars, idx, L.data(),INSERT_VALUES); CHKERRQ(ierr);
-  ierr = MatAssemblyBegin(A,MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);CHKERRQ(ierr);
-  ierr = MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);CHKERRQ(ierr);
+  //Row 1
+  Jel(0,0) = 0;J(0,1) = 1;J(0,2) = 0; 
+
+  //Row 2
+  Jel(1,0) = -0.5*(3-gamma)*pow(wel[1],2)/pow(wel[0],2);
+  Jel(1,1) = (3-gamma)*wel[1]/wel[0];
+  Jel(1,2) = gamma-1;
+
+  //Row 3
+  Jel(2,0) = (gamma-1)*pow(wel[1],3)/pow(wel[0],3) - gamma*wel[2]*wel[1]/pow(wel[0],2); 
+  Jel(2,1) = gamma*wel[2]/wel[0] - 1.5*(gamma-1)*pow(wel[1],2)/pow(wel[0],2);
+  Jel(2,2) = gamma*wel[1]/wel[0];
+
+  return ierr;
+}
+
+ PetscErrorCode flux::element_source_jacobian(const PetscInt &elem){
+
+  /**
+   * @brief Analytical source vector jacobian for each element
+   * 
+   */
+  PetscErrorCode ierr;
+  PetscScalar wel[mesh.nvars]. si, sm, k;
+  PetscInt idx[mesh.nvars], el;
+
+  Qel = Eigen::MatrixXd::Zero(mesh.nvars,mesh.nvars);
+  for (int i = 0; i < mesh.nvars; i++)
+  {
+    idx[i] = elem*mesh.nvars + i;
+  }
+  ierr = VecGetValues(w,mesh.nvars,idx,wel); CHKERRQ(ierr);
+  ierr = VecGetValues(mesh.sc, 1, &elem, &si); CHKERRQ(ierr);
+  el = elem -1;
+  ierr = VecGetValues(mesh.sc, 1, &el, &sm); CHKERRQ(ierr);
+
+  //Row 2 (Row 1 & 3 are zeros)
+  k = si-sm;
+  Qel(1,0) = k*(gamma-1)*0.5*pow(wel[1],2)/pow(wel[0],2);
+  Qel(2,0) = -k*(gamma-1)*wel[1]/wel[0];
+  Qel(3,0) = k*(gamma-1);
+ 
   return ierr;
 
-}
+ }
 
 
 

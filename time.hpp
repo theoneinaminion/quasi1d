@@ -7,10 +7,10 @@ class Solver{
      */
 
     public: 
-    Solver(flux &flux);
+    Solver(flux* flux);
     virtual ~Solver();
 
-    flux flx; /**< Flux object*/
+    flux* flx; /**< Flux object*/
     
     Vec res; /**< Residual vector*/
     Vec dw; /**< Increment conservative vector*/
@@ -23,6 +23,11 @@ class Solver{
     PetscScalar dt; /**< Time step*/
     PetscScalar CFL; /**< CFL number*/
 
+    /**
+     * @brief Setup KSP object
+     * 
+     */
+    PetscErrorCode setup_ksp();
     
     /**
      * @brief New time step after for next iteration 
