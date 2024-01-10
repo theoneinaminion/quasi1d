@@ -7,6 +7,7 @@
 #include "petscksp.h"
 #include "petscmath.h"
 #include <Eigen/Core>
+#include <cassert>
 using Eigen::Matrix;
 using Eigen::RowMajor;
 
@@ -126,12 +127,15 @@ class flux:public flow {
     PetscScalar *felem; /**< Flux vector array at each element*/
     PetscScalar *welem; /**< Conservative variables vector array at each element*/
     PetscScalar *qelem; /**< Source vector array at each element*/
+    PetscScalar *wb; /**< Conservative vec at inlet+1/exit-1. To be used while calculating the boundary Jacobian by perturb*/
 
     Eigen::Matrix<PetscScalar, Eigen::Dynamic, Eigen::Dynamic, RowMajor> Jel; /**<Flux Jacobian of an element*/
     Eigen::Matrix<PetscScalar, Eigen::Dynamic, Eigen::Dynamic, RowMajor> Qel; /**<Source Vector Jacobian of an element*/
-    
+    Eigen::Matrix<PetscScalar, Eigen::Dynamic, Eigen::Dynamic, RowMajor> Jb; /**<Boundary Jacobian of an element*/
+
 
     PetscScalar epsilon = 0.08; /**< Scalar Dissipation*/
+    PetscScalar pert = 1e-3; /**< Perturbation for Boundary Jacobian*/
 
     /**
      * @brief Initialize the primitive variables. 
@@ -185,16 +189,59 @@ class flux:public flow {
     PetscErrorCode assemble_source_vec();
 
     /**
-     * @brief Element flux Jacobian components.
+     * @brief Interior element flux Jacobian components.
      * @param elem Element number
      */
-    PetscErrorCode element_flux_jacobian(const PetscInt &elem);
+    PetscErrorCode int_element_flux_jacobian(const PetscInt &elem);
 
     /**
-     * @brief Element Source term Jacobian components.
+     * @brief Interior element Source term Jacobian components.
      * @param elem Element number
      */
-    PetscErrorCode element_source_jacobian(const PetscInt &elem); 
+    PetscErrorCode int_element_source_jacobian(const PetscInt &elem); 
 
+    /**
+     * @brief Assemble the global Jacobian matrix by adding time terms.
+     * 
+     */
+    PetscErrorCode assemble_jacobian(const PetscScalar &dt);
+
+    /**
+     * @brief Inlet Boundary conditions function for updating jacobian.
+     * Uses PetscScalar *wb[mesh.nvars]. 
+     * @param i is just a place holder to distinguish between the two overloaded functions.
+     */
+    PetscErrorCode inlet_bc(PetscInt i);
+
+    /**
+     * @brief Inlet Boundary conditions update. Overloaded function
+     * 
+     */
+    PetscErrorCode inlet_bc();
+
+    /**
+     * @brief Outlet Boundary conditions for updating jacobian. 
+     * Uses PetscScalar *wb[mesh.nvars].
+     * @param i is just a place holder to distinguish between the two overloaded functions.
+     */
+    PetscErrorCode outlet_bc(PetscInt i);
+
+    /**
+     * @brief Outlet Boundary conditions update. Overloaded function
+     * 
+     */
+    PetscErrorCode outlet_bc();
+
+    /**
+     * @brief Inlet Boundary Jacobian
+     * 
+     */
+    PetscErrorCode inlet_bc_jacobian();
+
+    /**
+     * @brief Outlet Boundary Jacobian
+     * 
+     */
+    PetscErrorCode outlet_bc_jacobian();
 
 };

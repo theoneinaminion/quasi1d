@@ -149,8 +149,11 @@ flux::flux(const Mesh &msh, const PetscScalar p_ratio):flow(msh,p_ratio) {
     felem = new PetscScalar[mesh.nvars];
     welem = new PetscScalar[mesh.nvars];
     qelem = new PetscScalar[mesh.nvars];
+    wb = new PetscScalar[mesh.nvars];
+
     Jel.resize(mesh.nvars,mesh.nvars);
     Qel.resize(mesh.nvars,mesh.nvars); 
+    Jb.resize(mesh.nvars,mesh.nvars); 
 
     PetscInt ierr;
     std::cout << "Constructing System Vectors"<<std::endl;
@@ -213,6 +216,7 @@ flux::~flux() {
     delete [] felem;
     delete [] welem;
     delete [] qelem;
+    delete [] wb;
 } 
 
     
@@ -407,6 +411,9 @@ PetscErrorCode flux:: element_source(const PetscInt &elem){
    * @brief Generate the source vector for each element.
    *  
    */
+    // We calculate the source term only for the interior cells. 
+    assert (elem>0);
+    assert (elem<mesh.ngrid);
     PetscErrorCode ierr;
     PetscScalar pelem, si, sm;
  
@@ -449,15 +456,19 @@ PetscErrorCode flux::assemble_source_vec(){
 
 }
 
-PetscErrorCode flux::element_flux_jacobian(const PetscInt &elem)
+PetscErrorCode flux::int_element_flux_jacobian(const PetscInt &elem)
 {
  /**
-  * @brief Analytical jacobian for each element
+  * @brief Analytical jacobian for each interior element
   * 
   */
   PetscErrorCode ierr;
   PetscScalar wel[mesh.nvars];
   PetscInt idx[mesh.nvars];
+
+  // We calculate the jacobian only for the interior cells. Direct BCs are used for boundary cells. 
+  assert (elem>0);
+  assert (elem<mesh.ngrid);
 
   Jel = Eigen::MatrixXd::Zero(mesh.nvars,mesh.nvars);
   for (int i = 0; i < mesh.nvars; i++)
@@ -469,7 +480,7 @@ PetscErrorCode flux::element_flux_jacobian(const PetscInt &elem)
   // The analytical Jacobian
 
   //Row 1
-  Jel(0,0) = 0;J(0,1) = 1;J(0,2) = 0; 
+  Jel(0,0) = 0;Jel(0,1) = 1;Jel(0,2) = 0; 
 
   //Row 2
   Jel(1,0) = -0.5*(3-gamma)*pow(wel[1],2)/pow(wel[0],2);
@@ -484,15 +495,19 @@ PetscErrorCode flux::element_flux_jacobian(const PetscInt &elem)
   return ierr;
 }
 
- PetscErrorCode flux::element_source_jacobian(const PetscInt &elem){
+ PetscErrorCode flux::int_element_source_jacobian(const PetscInt &elem){
 
   /**
    * @brief Analytical source vector jacobian for each element
    * 
    */
   PetscErrorCode ierr;
-  PetscScalar wel[mesh.nvars]. si, sm, k;
+  PetscScalar wel[mesh.nvars], si, sm, k;
   PetscInt idx[mesh.nvars], el;
+
+  // We calculate the jacobian only for the interior cells. Direct BCs are used for boundary cells. 
+  assert (elem>0);
+  assert (elem<mesh.ngrid);
 
   Qel = Eigen::MatrixXd::Zero(mesh.nvars,mesh.nvars);
   for (int i = 0; i < mesh.nvars; i++)
@@ -514,8 +529,264 @@ PetscErrorCode flux::element_flux_jacobian(const PetscInt &elem)
 
  }
 
+PetscErrorCode flux::inlet_bc(){
+  /**
+     * @brief Inlet Boundary conditions update using Riemann Invariants. Overloaded function
+     * 
+  */
+
+  PetscErrorCode ierr;
+  PetscScalar w1[mesh.nvars], w2[mesh.nvars];
+  PetscInt idx[mesh.nvars];
+
+  // Primitives at elem = 0 and 1.   
+  PetscScalar r1,u1,p1,T1,c1;
+  PetscScalar r2,u2,p2,c2;
+
+  PetscInt elem = 1;
+  for (int i = 0; i < mesh.nvars; i++)
+  {
+    idx[i] = elem*mesh.nvars + i;
+  }
+  ierr = VecGetValues(w,mesh.nvars,idx,w2); CHKERRQ(ierr);
+  
+  elem = elem-1;
+  for (int i = 0; i < mesh.nvars; i++)
+  {
+    idx[i] = elem*mesh.nvars + i;
+  }
+  ierr = VecGetValues(w,mesh.nvars,idx,w1); CHKERRQ(ierr);
+  
+
+  //Getting values at first element. (No using primitive vectors directly coz they are not updated yet)
+  r1 = w1[0];
+  u1 = w1[1]/w1[0];
+  p1 = (gamma-1)*(w1[2] - 0.5*pow(u1,2)*r1);
+  T1 = p1/(R*r1);
+  c1 = sqrt(gamma*p1/r1);
+
+  //Getting values at second element.
+  r2 = w2[0];
+  u2 = w2[1]/w2[0];
+  p2 = (gamma-1)*(w2[2] - 0.5*pow(u2,2)*r2);
+  //T2 = p2/(R*r2);
+  c2 = sqrt(gamma*p2/r2);
+
+  PetscScalar mi = (u1+u2)/(c1+c2);
+
+  // Updating the first element only duriing subsonic flow
+  if(mi<1) {
+
+    PetscScalar Rm  = -u2-2*c2/(gamma-1);
+    PetscScalar c02 = pow(c2,2) + 0.5*(gamma-1)*pow(u2,2);
+    PetscScalar l   = -Rm*(gamma-1)/(gamma+1);
+    PetscScalar k   = (c02/pow(Rm,2))*(gamma-1)/(gamma+1) - 0.5*(gamma-1);
+    c1  = l*(1+sqrt(k));
+
+    T1 = T_t*(pow(c1,2)/c02);
+    p1 = p_t*pow((T1/T_t),(gamma/(gamma-1)));
+    r1 = p1/(R*T1);
+    u1 = pow((2*cp*(T_t - T1)),0.5);
+    
+    PetscScalar E1 = p1/(gamma-1) + 0.5*r1*pow(u1,2);
+
+    w1[0] = r1;
+    w1[1] = r1*u1;
+    w1[2] = E1;
+  }
+  
+  //Updating the first element
+  ierr = VecSetValues(w,mesh.nvars,idx,w1,INSERT_VALUES); CHKERRQ(ierr);
+  ierr = VecAssemblyBegin(w); CHKERRQ(ierr);
+  ierr = VecAssemblyEnd(w); CHKERRQ(ierr);
+  return ierr;
+}
+
+ 
+
+ PetscErrorCode flux::inlet_bc(PetscInt i){
+
+  /**
+     * @brief Inlet Boundary conditions function for updating jacobian.
+     * 
+     * 
+  */
+
+  PetscErrorCode ierr;
+  PetscScalar w1[mesh.nvars];
+
+  // Primitives at elem = 0 and 1.   
+  PetscScalar r1,u1,p1,T1,c1;
+  PetscScalar r2,u2,p2,c2;
+  PetscInt idx[mesh.nvars]={0,1,2};
+
+  ierr = VecGetValues(w,mesh.nvars,idx,w1); CHKERRQ(ierr);
+
+  //Getting values at first element. (No using primitive vectors directly coz they are not updated yet)
+  r1 = w1[0];
+  u1 = w1[1]/w1[0];
+  p1 = (gamma-1)*(w1[2] - 0.5*pow(u1,2)*r1);
+  T1 = p1/(R*r1);
+  c1 = sqrt(gamma*p1/r1);
+
+  //Getting values at second element.
+  r2 = wb[0];
+  u2 = wb[1]/wb[0];
+  p2 = (gamma-1)*(wb[2] - 0.5*pow(u2,2)*r2);
+  //T2 = p2/(R*r2);
+  c2 = sqrt(gamma*p2/r2);
+
+  PetscScalar mi = (u1+u2)/(c1+c2);
+
+  // Updating the first element only duriing subsonic flow
+  if(mi<1) {
+
+    PetscScalar Rm  = -u2-2*c2/(gamma-1);
+    PetscScalar c02 = pow(c2,2) + 0.5*(gamma-1)*pow(u2,2);
+    PetscScalar l   = -Rm*(gamma-1)/(gamma+1);
+    PetscScalar k   = (c02/pow(Rm,2))*(gamma-1)/(gamma+1) - 0.5*(gamma-1);
+    c1  = l*(1+sqrt(k));
+
+    T1 = T_t*(pow(c1,2)/c02);
+    p1 = p_t*pow((T1/T_t),(gamma/(gamma-1)));
+    r1 = p1/(R*T1);
+    u1 = pow((2*cp*(T_t - T1)),0.5);
+    
+    PetscScalar E1 = p1/(gamma-1) + 0.5*r1*pow(u1,2);
+
+    // This is temprary update of w1 stored here. It will be used in jacobian updating process. 
+    welem[0] = r1;
+    welem[1] = r1*u1;
+    welem[2] = E1;
+  } 
+
+  return ierr;
+
+ }
+
+ 
+  PetscErrorCode flux::outlet_bc(){
+    /**
+       * @brief Outlet Boundary conditions update using Riemann Invariants. Overloaded function
+       * 
+    */
 
 
+    PetscErrorCode ierr;
+    PetscScalar w1[mesh.nvars], w2[mesh.nvars]; // Conservatives at elem = ngrid-1 and ngrid respectively.
+    PetscInt idx[mesh.nvars];
+
+    // Primitives at elem = ngrid-1 and ngrid respectively.    
+    PetscScalar r1,u1,p1,c1;
+    PetscScalar r2,u2,p2,c2;
+    PetscInt elem = mesh.ngrid-1;
+    for (int i = 0; i < mesh.nvars; i++)
+    {
+      idx[i] = elem*mesh.nvars + i;
+    }
+
+    ierr = VecGetValues(w,mesh.nvars,idx,w1); CHKERRQ(ierr);
+    elem = mesh.ngrid;
+    for (int i = 0; i < mesh.nvars; i++)
+    {
+      idx[i] = elem*mesh.nvars + i;
+    }
+    ierr = VecGetValues(w,mesh.nvars,idx,w2); CHKERRQ(ierr);
+
+    //Getting values at ngrid-1 element. (No using primitive vectors directly coz they are not updated yet)
+    r1 = w1[0];
+    u1 = w1[1]/w1[0];
+    p1 = (gamma-1)*(w1[2] - 0.5*pow(u1,2)*r1);
+    //T1 = p1/(R*r1);
+    c1 = sqrt(gamma*p1/r1);
+
+    //Getting values at ngrid element.
+    r2 = w2[0];
+    u2 = w2[1]/w2[0];
+    p2 = (gamma-1)*(w2[2] - 0.5*pow(u2,2)*r2);
+    //T2 = p2/(R*r2);
+    c2 = sqrt(gamma*p2/r2);
+
+    PetscScalar me = (u1+u2)/(c1+c2);
+
+    if(me<1)
+    {
+      PetscScalar c0 = sqrt(pow(c1,2) + 0.5*(gamma-1)*pow(u1,2));  // Total speed of sound
+      p2 = p_exit;
+      r2 = r1 + (p2 - p1)/(pow(c0,2));
+      u2 = u1 + (p1 - p2)/(r1*c0);
+      PetscScalar E2 = p2/(gamma-1) + 0.5*r2*pow(u2,2);
+
+      w2[0] = r2;
+      w2[1] = r2*u2;
+      w2[2] = E2;
+    }
+
+    //Updating the last element
+    ierr = VecSetValues(w,mesh.nvars,idx,w2,INSERT_VALUES); CHKERRQ(ierr); //idx is already at ngrid
+    ierr = VecAssemblyBegin(w); CHKERRQ(ierr);
+    ierr = VecAssemblyEnd(w); CHKERRQ(ierr);
+    return ierr;
+  }
+
+  PetscErrorCode flux::outlet_bc(PetscInt i){
+    /**
+       * @brief Outlet Boundary conditions update using Riemann Invariants. Overloaded function
+       * 
+    */
+
+
+    PetscErrorCode ierr;
+    PetscScalar w2[mesh.nvars]; // Conservatives at elem = ngrid-1 and ngrid respectively.
+    PetscInt idx[mesh.nvars];
+
+    // Primitives at elem = ngrid-1 and ngrid respectively.    
+    PetscScalar r1,u1,p1,c1;
+    PetscScalar r2,u2,p2,c2;
+    PetscInt elem = mesh.ngrid;
+    
+    for (int i = 0; i < mesh.nvars; i++)
+    {
+      idx[i] = elem*mesh.nvars + i;
+    }
+    ierr = VecGetValues(w,mesh.nvars,idx,w2); CHKERRQ(ierr);
+
+    //Getting values at ngrid-1 element. (No using primitive vectors directly coz they are not updated yet)
+    r1 = wb[0];
+    u1 = wb[1]/wb[0];
+    p1 = (gamma-1)*(wb[2] - 0.5*pow(u1,2)*r1);
+    //T1 = p1/(R*r1);
+    c1 = sqrt(gamma*p1/r1);
+
+    //Getting values at ngrid element.
+    r2 = w2[0];
+    u2 = w2[1]/w2[0];
+    p2 = (gamma-1)*(w2[2] - 0.5*pow(u2,2)*r2);
+    //T2 = p2/(R*r2);
+    c2 = sqrt(gamma*p2/r2);
+
+    PetscScalar me = (u1+u2)/(c1+c2);
+
+    if(me<1)
+    {
+      PetscScalar c0 = sqrt(pow(c1,2) + 0.5*(gamma-1)*pow(u1,2));  // Total speed of sound
+      p2 = p_exit;
+      r2 = r1 + (p2 - p1)/(pow(c0,2));
+      u2 = u1 + (p1 - p2)/(r1*c0);
+      PetscScalar E2 = p2/(gamma-1) + 0.5*r2*pow(u2,2);
+
+      // Temporarily storing it in welem to be used in Jacobian update
+      welem[0] = r2;
+      welem[1] = r2*u2;
+      welem[2] = E2;
+    }
+
+
+    return ierr;
+  }
+
+
+ 
 
 
 

@@ -41,13 +41,13 @@ int main(int argc,char **argv){
     ierr = slv.flx->assemble_conservative_vec();
     ierr = slv.flx->assemble_flux_vec();
     ierr = slv.flx->assemble_source_vec();
-    ierr = slv.flx->element_flux_jacobian(0);
+    ierr = slv.flx->int_element_flux_jacobian(1);
     //std::cout << flw.pr << std::endl;
     // for (int i = 0; i < flx.mesh.nvars; i++){
     //     std::cout << flx.qelem[i] << std::endl;
     // }
     //VecView(flx.q,PETSC_VIEWER_STDOUT_SELF);
-    MatView(slv.flx->A,PETSC_VIEWER_STDOUT_SELF);    
+    //MatView(slv.flx->A,PETSC_VIEWER_STDOUT_SELF);    
     
 
     return ierr;
