@@ -132,11 +132,11 @@ class flux:public flow {
     Eigen::Matrix<PetscScalar, Eigen::Dynamic, Eigen::Dynamic, RowMajor> Jel; /**<Flux Jacobian of an element*/
     Eigen::Matrix<PetscScalar, Eigen::Dynamic, Eigen::Dynamic, RowMajor> Qel; /**<Source Vector Jacobian of an element*/
     Eigen::Matrix<PetscScalar, Eigen::Dynamic, Eigen::Dynamic, RowMajor> Jb; /**<Boundary Jacobian of an element*/
-
+    Eigen::Matrix<PetscScalar, Eigen::Dynamic, Eigen::Dynamic, RowMajor> Imat; /**<Identity Matrix*/
 
     PetscScalar epsilon = 0.08; /**< Scalar Dissipation*/
     PetscScalar pert = 1e-3; /**< Perturbation for Boundary Jacobian*/
-
+    PetscScalar lm, lp; /**< Left and Right eigenvalues*/
     /**
      * @brief Initialize the primitive variables. 
      * 
@@ -211,7 +211,7 @@ class flux:public flow {
      * Uses PetscScalar *wb[mesh.nvars]. 
      * @param i is just a place holder to distinguish between the two overloaded functions.
      */
-    PetscErrorCode inlet_bc(PetscInt i);
+    PetscErrorCode inlet_bc(PetscInt in);
 
     /**
      * @brief Inlet Boundary conditions update. Overloaded function
@@ -224,7 +224,7 @@ class flux:public flow {
      * Uses PetscScalar *wb[mesh.nvars].
      * @param i is just a place holder to distinguish between the two overloaded functions.
      */
-    PetscErrorCode outlet_bc(PetscInt i);
+    PetscErrorCode outlet_bc(PetscInt in);
 
     /**
      * @brief Outlet Boundary conditions update. Overloaded function
@@ -243,5 +243,13 @@ class flux:public flow {
      * 
      */
     PetscErrorCode outlet_bc_jacobian();
+
+    /**
+     * @brief Get the elem eigen object using u+c, u, u-c using elem+1, elem-1, elem 
+     * 
+     * @param elem 
+     * @return PetscErrorCode 
+     */
+    PetscErrorCode get_elem_eigen(const PetscInt &elem);
 
 };

@@ -153,7 +153,8 @@ flux::flux(const Mesh &msh, const PetscScalar p_ratio):flow(msh,p_ratio) {
 
     Jel.resize(mesh.nvars,mesh.nvars);
     Qel.resize(mesh.nvars,mesh.nvars); 
-    Jb.resize(mesh.nvars,mesh.nvars); 
+    Jb.resize(mesh.nvars,mesh.nvars);
+    Imat.resize(mesh.nvars,mesh.nvars);
 
     PetscInt ierr;
     std::cout << "Constructing System Vectors"<<std::endl;
@@ -176,7 +177,8 @@ flux::flux(const Mesh &msh, const PetscScalar p_ratio):flow(msh,p_ratio) {
     ierr = MatSetType(A,MATSEQBAIJ);
     if(ierr)
 		  std::cout << "Couldn't set type of A!\n";
-    ierr = MatSetSizes(A,PETSC_DECIDE,PETSC_DECIDE,mesh.nvars,mesh.nvars);
+    int size = mesh.ngrid*mesh.nvars - 2*mesh.nvars;  
+    ierr = MatSetSizes(A,PETSC_DECIDE,PETSC_DECIDE,size,size);
     if(ierr)
 		  std::cout << "Couldn't set sizes of A!\n";
     ierr = MatSetBlockSize(A,mesh.nvars);
@@ -466,10 +468,7 @@ PetscErrorCode flux::int_element_flux_jacobian(const PetscInt &elem)
   PetscScalar wel[mesh.nvars];
   PetscInt idx[mesh.nvars];
 
-  // We calculate the jacobian only for the interior cells. Direct BCs are used for boundary cells. 
-  assert (elem>0);
-  assert (elem<mesh.ngrid);
-
+  
   Jel = Eigen::MatrixXd::Zero(mesh.nvars,mesh.nvars);
   for (int i = 0; i < mesh.nvars; i++)
   {
@@ -604,7 +603,7 @@ PetscErrorCode flux::inlet_bc(){
 
  
 
- PetscErrorCode flux::inlet_bc(PetscInt i){
+ PetscErrorCode flux::inlet_bc(PetscInt in){
 
   /**
      * @brief Inlet Boundary conditions function for updating jacobian.
@@ -614,6 +613,7 @@ PetscErrorCode flux::inlet_bc(){
 
   PetscErrorCode ierr;
   PetscScalar w1[mesh.nvars];
+  in = in+1; // A bogus operation to avoid compilation errors. 
 
   // Primitives at elem = 0 and 1.   
   PetscScalar r1,u1,p1,T1,c1;
@@ -729,7 +729,7 @@ PetscErrorCode flux::inlet_bc(){
     return ierr;
   }
 
-  PetscErrorCode flux::outlet_bc(PetscInt i){
+  PetscErrorCode flux::outlet_bc(PetscInt in){
     /**
        * @brief Outlet Boundary conditions update using Riemann Invariants. Overloaded function
        * 
@@ -739,6 +739,7 @@ PetscErrorCode flux::inlet_bc(){
     PetscErrorCode ierr;
     PetscScalar w2[mesh.nvars]; // Conservatives at elem = ngrid-1 and ngrid respectively.
     PetscInt idx[mesh.nvars];
+    in = in+1; // A bogus operation to avoid compilation errors.
 
     // Primitives at elem = ngrid-1 and ngrid respectively.    
     PetscScalar r1,u1,p1,c1;
@@ -784,6 +785,204 @@ PetscErrorCode flux::inlet_bc(){
 
     return ierr;
   }
+
+  PetscErrorCode flux::inlet_bc_jacobian()
+  {
+    PetscErrorCode ierr;
+    PetscScalar w1[mesh.nvars];
+    PetscInt idx[mesh.nvars]={0,1,2};
+
+    Jb = Eigen::MatrixXd::Zero(mesh.nvars,mesh.nvars);
+    
+    ierr = VecGetValues(w,mesh.nvars,idx,w1); CHKERRQ(ierr);
+    for (int i = 0; i < mesh.nvars; i++)
+    {
+      idx[i] = 1*mesh.nvars + i;
+    }
+    ierr = VecGetValues(w,mesh.nvars,idx,wb); CHKERRQ(ierr);
+
+    // Writing the jacobian to Jb
+    for (int i = 0; i < mesh.nvars; i++)
+    {
+
+      wb[i] = wb[i] + pert;
+      ierr = inlet_bc(i); CHKERRQ(ierr); // the input argument i serves no purpose here.
+      for (int j = 0; j < mesh.nvars; j++)
+      {
+        Jb(i,j) = (welem[j] - w1[j])/pert;
+      }
+
+      wb[i] = wb[i] - pert; // undoing it so that the coponent is unchanged for the next iteration
+      
+    }
+
+    return ierr;
+  }
+
+
+  PetscErrorCode flux::outlet_bc_jacobian()
+  {
+    PetscErrorCode ierr;
+    PetscScalar w2[mesh.nvars];
+    PetscInt idx[mesh.nvars];
+    Jb = Eigen::MatrixXd::Zero(mesh.nvars,mesh.nvars);
+
+    PetscInt elem = mesh.ngrid-1;
+    for (int i = 0; i < mesh.nvars; i++)
+    {
+      idx[i] = elem*mesh.nvars + i;
+    }
+
+    ierr = VecGetValues(w,mesh.nvars,idx,wb); CHKERRQ(ierr);
+    elem = mesh.ngrid;
+    for (int i = 0; i < mesh.nvars; i++)
+    {
+      idx[i] = elem*mesh.nvars + i;
+    }
+    ierr = VecGetValues(w,mesh.nvars,idx,w2); CHKERRQ(ierr);
+
+    // Writing the jacobian to Jb
+    for (int i = 0; i < mesh.nvars; i++)
+    {
+
+      wb[i] = wb[i] + pert;
+      ierr = inlet_bc(i); CHKERRQ(ierr); // the input argument i serves no purpose here.
+      for (int j = 0; j < mesh.nvars; j++)
+      {
+        Jb(i,j) = (welem[j] - w2[j])/pert;
+      }
+
+      wb[i] = wb[i] - pert; // undoing it so that the coponent is unchanged for the next iteration
+      
+    }
+
+    return ierr;
+  }
+
+  PetscErrorCode flux::get_elem_eigen(const PetscInt &elem)
+  {
+    PetscScalar ierr; 
+    PetscInt el;
+    PetscScalar ui, up, um, ci, cp, cm; // u, c at elem,elem+1, elem-1 respectively  
+
+    ierr = VecGetValues(u,1,&elem,&ui); CHKERRQ(ierr);
+    ierr = VecGetValues(c,1,&elem,&ci); CHKERRQ(ierr);
+
+    el = elem+1;
+    ierr = VecGetValues(u,1,&el,&up); CHKERRQ(ierr);
+    ierr = VecGetValues(c,1,&el,&cp); CHKERRQ(ierr);
+
+    el = elem-1;
+    ierr = VecGetValues(u,1,&el,&um); CHKERRQ(ierr);
+    ierr = VecGetValues(c,1,&el,&cm); CHKERRQ(ierr);
+
+    PetscScalar max = std::max(0.5*(ui+up),0.5*(ui+up+ci+cp));
+    lp = std::max(max,0.5*(ui+up-ci-cp));
+
+    max = std::max(0.5*(ui+um),0.5*(ui+um+ci+cm));
+    lm = std::max(max,0.5*(ui+um-ci-cm));
+
+    return ierr;
+
+  }
+
+  PetscErrorCode flux::assemble_jacobian(const PetscScalar &dt)
+  {
+    PetscErrorCode ierr;
+    PetscInt idxr[mesh.nvars], idxc[mesh.nvars]; //Row and column indices
+    Imat = Eigen::MatrixXd::Identity(mesh.nvars,mesh.nvars);
+    PetscScalar sp, sm, vi;
+
+    ierr = MatZeroEntries(A); CHKERRQ(ierr); // Zeroing the matrix before assembly
+
+
+    for(PetscInt iel=1; iel <= mesh.ngrid-1; iel++)
+    {
+      // Prelimnary Data from the element
+      ierr = get_elem_eigen(iel); CHKERRQ(ierr);
+      ierr = VecGetValues(mesh.vol,1,&iel,&vi); CHKERRQ(ierr);
+      ierr = VecGetValues(mesh.sw,1,&iel,&sm); CHKERRQ(ierr);
+      int el = iel+1;
+      ierr = VecGetValues(mesh.sw,1,&el,&sp); CHKERRQ(ierr);
+
+      //############## L block begins ########################
+      el = iel-1;
+      for (int j = 0; j < mesh.ngrid; j++)
+      {
+        //L rows and columns. You have to shift the indices like this you are solving only from 1 to ngrid-1
+        idxr[j] = el*mesh.nvars + j;
+        idxc[j] = (el-1)*mesh.nvars + j;
+      }
+      ierr = int_element_flux_jacobian(el); CHKERRQ(ierr);
+      Jel = -0.5*(Jel + epsilon*lm*Imat)*sm/vi; // Lmat
+
+      if(iel>1) 
+      {
+        //Write values only for when the element is > 1.
+        ierr = MatSetValuesBlocked(A, mesh.nvars, idxr, mesh.nvars, idxc, Jel.data(), INSERT_VALUES); CHKERRQ(ierr);
+        Jb = Eigen::MatrixXd::Zero(mesh.nvars,mesh.nvars); // No boundary value then
+      }
+      else
+      {
+        // Inlet Boundary
+        ierr = inlet_bc_jacobian(); CHKERRQ(ierr);
+        Jb = Jel*Jb;
+
+      }
+      
+      //############## L block Ends ##########################
+
+      //############## U block begins ########################
+      el = iel+1;
+      for (int j = 0; j < mesh.ngrid; j++)
+      {
+        //L rows and columns. You have to shift the indices like this you are solving only from 1 to ngrid-1
+        idxr[j] = el*mesh.nvars + j;
+        idxc[j] = (el+1)*mesh.nvars + j;
+      }
+      ierr = int_element_flux_jacobian(el); CHKERRQ(ierr);
+      Jel = 0.5*(Jel + epsilon*lp*Imat)*sp/vi; // Umat
+
+      if(iel<mesh.ngrid-1) 
+      {
+        //Write values only for when the element is > 1.
+        ierr = MatSetValuesBlocked(A, mesh.nvars, idxr, mesh.nvars, idxc, Jel.data(), INSERT_VALUES); CHKERRQ(ierr);
+        Jb = Eigen::MatrixXd::Zero(mesh.nvars,mesh.nvars); // No boundary value then
+
+      }
+      else
+      {
+        ierr = outlet_bc_jacobian(); CHKERRQ(ierr);
+        Jb = Jel*Jb;
+      }
+      
+      //############## U block ends ########################
+
+      //############## Diagonal block begins ###################
+      for (int j = 0; j < mesh.ngrid; j++)
+      {
+        //Diagonal rows and columns. You have to shift the indices like this you are solving only from 1 to ngrid-1
+        idxr[j] = (iel-1)*mesh.nvars + j;
+        idxc[j] = (iel-1)*mesh.nvars + j;
+      }
+      
+      ierr = int_element_flux_jacobian(iel); CHKERRQ(ierr);
+      ierr = int_element_source_jacobian(iel); CHKERRQ(ierr);
+
+      Jel = (Imat/dt + 0.5*(Jel + epsilon*lp*Imat) - 0.5*(Jel - epsilon*lm*Imat) - Qel)/vi + Jb;      
+
+      ierr = MatSetValuesBlocked(A, mesh.nvars, idxr, mesh.nvars, idxc, Jel.data(), INSERT_VALUES); CHKERRQ(ierr);
+
+      //############## Diagonal block Ends ###################
+
+      
+    }
+    ierr = MatAssemblyBegin(A,MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+    ierr = MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+    return ierr;
+    
+  }
+  
 
 
  

@@ -42,7 +42,9 @@ int main(int argc,char **argv){
     ierr = slv.flx->assemble_flux_vec();
     ierr = slv.flx->assemble_source_vec();
     ierr = slv.flx->int_element_flux_jacobian(1);
-    //std::cout << flw.pr << std::endl;
+    PetscInt size;
+    ierr = MatGetSize(slv.flx->A,&size,&size);
+    std::cout << size << std::endl;
     // for (int i = 0; i < flx.mesh.nvars; i++){
     //     std::cout << flx.qelem[i] << std::endl;
     // }
