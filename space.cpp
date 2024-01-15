@@ -896,7 +896,7 @@ PetscErrorCode flux::inlet_bc(){
     ierr = MatZeroEntries(A); CHKERRQ(ierr); // Zeroing the matrix before assembly
 
 
-    for(PetscInt iel=1; iel <= mesh.ngrid-1; iel++)
+    for(PetscInt iel=1; iel < mesh.ngrid-1; iel++)
     {
       // Prelimnary Data from the element
       ierr = get_elem_eigen(iel); CHKERRQ(ierr);
@@ -943,7 +943,7 @@ PetscErrorCode flux::inlet_bc(){
       ierr = int_element_flux_jacobian(el); CHKERRQ(ierr);
       Jel = 0.5*(Jel + epsilon*lp*Imat)*sp/vi; // Umat
 
-      if(iel<mesh.ngrid-1) 
+      if(iel<mesh.ngrid-2) //Outer boundary has index of 49. So, 48 is the last interior element.
       {
         //Write values only for when the element is > 1.
         ierr = MatSetValuesBlocked(A, mesh.nvars, idxr, mesh.nvars, idxc, Jel.data(), INSERT_VALUES); CHKERRQ(ierr);
@@ -969,7 +969,7 @@ PetscErrorCode flux::inlet_bc(){
       ierr = int_element_flux_jacobian(iel); CHKERRQ(ierr);
       ierr = int_element_source_jacobian(iel); CHKERRQ(ierr);
 
-      Jel = (Imat/dt + 0.5*(Jel + epsilon*lp*Imat) - 0.5*(Jel - epsilon*lm*Imat) - Qel)/vi + Jb;      
+      Jel = (Imat/dt + 0.5*(Jel + epsilon*lp*Imat)*sp - 0.5*(Jel - epsilon*lm*Imat)*sm - Qel)/vi + Jb;      
 
       ierr = MatSetValuesBlocked(A, mesh.nvars, idxr, mesh.nvars, idxc, Jel.data(), INSERT_VALUES); CHKERRQ(ierr);
 

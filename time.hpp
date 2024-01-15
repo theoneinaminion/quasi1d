@@ -14,7 +14,6 @@ class Solver{
     
     Vec res; /**< Residual vector*/
     Vec dw; /**< Increment conservative vector*/
-    PetscScalar *res_elem; /**< Residual vector array at each element*/
     KSP ksp; /**< KSP Object*/
 
     PetscScalar resnrm; /**< Non-Linear Residual norm*/
@@ -36,23 +35,15 @@ class Solver{
      */
     void new_time_step();
 
-    /**
-     * @brief Calculate non-linear residual at each element
-     * 
-     */
-    PetscErrorCode elem_residual(const PetscInt &elem);
-
+ 
     /**
      * @brief Assemble the global non-lin residual vector
      * 
      */
-    PetscErrorCode assemle_residual_vec();
+    PetscErrorCode compute_residual();
 
     /**
-     * @brief Non Linear Solver 
-     * @param mesh Mesh object
-     * @param pr Pressure ratio
-     * 
+     * @brief Solve the non-linear system
      */
     PetscErrorCode solve();
 
