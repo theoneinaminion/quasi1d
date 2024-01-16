@@ -1,4 +1,5 @@
 #include "space.hpp"
+#define DEBUG 0
 
 class Solver{
     /**
@@ -21,6 +22,8 @@ class Solver{
 
     PetscScalar dt; /**< Time step*/
     PetscScalar CFL; /**< CFL number*/
+    PetscScalar relax = 0.9; /**< Under Relaxation factor*/
+    PetscScalar restol = 1e-6; /**< Tolerance for Non-Linear solver*/
 
     /**
      * @brief Setup KSP object
@@ -43,15 +46,43 @@ class Solver{
     PetscErrorCode compute_residual();
 
     /**
+     * @brief Compute the non-linear residual norm of mass eqn
+     * 
+     */
+    PetscErrorCode compute_resnrm();
+
+    /**
      * @brief Solve the non-linear system
      */
     PetscErrorCode solve();
 
     /**
-     * @brief Update the solution vector flx.w = flx.w + dw
+     * @brief Update the solution vector flx.w = flx.w + dw (including updating boundaries)
      * 
      */
 
     PetscErrorCode update_solution();
+
+    /**
+     * @brief Write a Petsc Object as a dat file
+     * @param v Petsc Object
+     * @param name Name of the file excluding extension
+     */
+    PetscErrorCode writePetscObj(const Vec &v, std::string name);
+
+    /**
+     * @brief Write a Petsc Object as a dat file (to be used while denugging)
+     * @param A Petsc Object
+     * @param name Name of the file excluding extension
+     */
+    PetscErrorCode writePetscObj(const Mat &A, std::string name);
+
+
+    /**
+     * @brief Writes Mach, xw, p as dat files. 
+     * 
+     * @return PetscErrorCode 
+     */
+    PetscErrorCode write_soln();
 
 };

@@ -127,19 +127,118 @@ PetscErrorCode Solver::compute_residual()
     }
     ierr = VecAssemblyBegin(res); CHKERRQ(ierr);
     ierr = VecAssemblyEnd(res); CHKERRQ(ierr);
-    ierr = VecNorm(res,NORM_2,&resnrm); CHKERRQ(ierr);
-    std::cout << "Log Non-Linear Residual norm is: " << std::log10(resnrm) << std::endl;
+    ierr = compute_resnrm(); CHKERRQ(ierr);
     return ierr;
 }
 
+PetscErrorCode Solver::compute_resnrm()
+{
+    PetscErrorCode ierr;
+    PetscInt idx[flx->mesh.nvars], el;
+    PetscScalar relem[flx->mesh.nvars], nrm = 0.0; 
+
+    for (PetscInt iel = 1; iel < flx->mesh.ngrid-1; iel++)
+    {
+        el = iel -1;
+        for (int i = 0; i < flx->mesh.nvars; i++)
+        {
+            idx[i] = el*flx->mesh.nvars + i; 
+        }
+        ierr = VecGetValues(res,flx->mesh.nvars,idx,relem); CHKERRQ(ierr);
+        nrm += relem[0]*relem[0]; 
+        
+    }
+    resnrm = std::sqrt(nrm);
+    std::cout << "Log Non-Linear Residual norm is: " << std::log10(resnrm) << std::endl;
+    return ierr;
+    
+}
+
+PetscErrorCode Solver::update_solution()
+{
+    PetscErrorCode ierr;
+    PetscInt idx[flx->mesh.nvars], el;
+    PetscScalar welem[flx->mesh.nvars], dwelem[flx->mesh.nvars];
+
+    for (PetscInt iel = 1; iel < flx->mesh.ngrid-1; iel++)
+    {
+        for (int i = 0; i < flx->mesh.nvars; i++)
+        {
+            idx[i] = iel*flx->mesh.nvars + i;
+        }
+        ierr = VecGetValues(flx->w,flx->mesh.nvars,idx,welem); CHKERRQ(ierr);
+
+        el = iel-1;
+        for (int i = 0; i < flx->mesh.nvars; i++)
+        {
+            idx[i] = el*flx->mesh.nvars + i;
+        }
+
+        ierr = VecGetValues(dw,flx->mesh.nvars,idx,dwelem); CHKERRQ(ierr);
+        for (int i = 0; i < flx->mesh.nvars; i++)
+        {
+            welem[i] = welem[i] + relax*dwelem[i];
+        }
+        ierr = VecSetValues(flx->w,flx->mesh.nvars,idx,welem,INSERT_VALUES); CHKERRQ(ierr);
+    }
+    ierr = VecAssemblyBegin(flx->w); CHKERRQ(ierr);
+    ierr = VecAssemblyEnd(flx->w); CHKERRQ(ierr);
+
+    // Update Boundaries 
+    ierr = flx->outlet_bc(); CHKERRQ(ierr); // Already has a VecAssembly part
+    ierr = flx->inlet_bc(); CHKERRQ(ierr); // Already has a VecAssembly part
+    return ierr;
+
+}
+
+PetscErrorCode Solver::writePetscObj(const Vec &v, std::string name)
+	
+{
+
+	PetscViewer viewer;
+	const std::string namefin = name + ".dat";
+	PetscCall(VecView(v, PETSC_VIEWER_STDOUT_WORLD));
+    
+    std::cout << "Writing the file: " << namefin << std::endl;
+	PetscCall(PetscViewerASCIIOpen(PETSC_COMM_WORLD, namefin.c_str(), &viewer));
+	PetscCall(VecView(v, viewer));
+	PetscCall(PetscViewerDestroy(&viewer));
+	return 0;
+
+} 
+
+PetscErrorCode Solver::write_soln()
+{
+    PetscErrorCode ierr;
+    ierr = writePetscObj(flx->M,"mach"); CHKERRQ(ierr);
+    ierr = writePetscObj(flx->mesh.xc,"cell_centers"); CHKERRQ(ierr);
+    ierr = writePetscObj(flx->p,"pressure"); CHKERRQ(ierr);
+    return ierr;
+
+}
+
+PetscErrorCode Solver::writePetscObj(Mat &A, std::string name)
+	
+{
+
+    PetscViewer viewer;
+
+    const std::string namefin = name + ".m";
+    PetscCall(MatView(A, PETSC_VIEWER_STDOUT_WORLD));
+    std::cout << "Writing the file: " << namefin << std::endl;
+    PetscCall(PetscViewerASCIIOpen(PETSC_COMM_WORLD, namefin.c_str(), &viewer));
+    PetscCall(PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB));
+    PetscCall(MatView(A, viewer));
+
+    PetscCall(PetscViewerDestroy(&viewer));
+    return 0;
+
+} 
+
+
 PetscErrorCode Solver::solve()
 {
-    /**
-     * @brief Non Linear Solver 
-     * @param mesh Mesh object
-     * @param pr Pressure ratio
-     * 
-     */
+ 
     PetscErrorCode ierr;
     ierr = 0;
     
@@ -160,10 +259,11 @@ PetscErrorCode Solver::solve()
             updatesoln();
             flx.conservative_to_primitive();
             VecNorm(res,NORM_2,&resnrm);
-
-            write_solution();
-
         }
+            write_solution();
+            
+
+        
     */
    //################ Basic structure Ends ################
 
