@@ -51,7 +51,6 @@ void Solver::adapt_time_step()
 
 PetscErrorCode Solver::setup_ksp()
 {
-
     PetscErrorCode ierr;
     PC pc;
     ierr = KSPSetOperators(ksp,flx->A,flx->A); CHKERRQ(ierr);
@@ -62,6 +61,7 @@ PetscErrorCode Solver::setup_ksp()
     ierr = KSPSetUp(ksp); CHKERRQ(ierr);
     std::cout << "KSP Object setup complete"<<std::endl;
     return ierr;
+
 }
 
 PetscErrorCode Solver::compute_residual()
@@ -241,6 +241,7 @@ PetscErrorCode Solver::solve()
  
     PetscErrorCode ierr;
     ierr = 0;
+    PC pc;
     PetscInt iter = 0;
 
     //Initializing 
@@ -248,7 +249,7 @@ PetscErrorCode Solver::solve()
     ierr = flx->assemble_conservative_vec();CHKERRQ(ierr);
 
     // Setup KSP
-    ierr = setup_ksp(); CHKERRQ(ierr);
+    //ierr = setup_ksp(); CHKERRQ(ierr);
 
     while ((resnrm > restol) && (iter < maxiter))
     {
@@ -256,6 +257,10 @@ PetscErrorCode Solver::solve()
         iter = iter + 1;
        
         ierr = flx->assemble_jacobian(dt);CHKERRQ(ierr);
+        ierr = KSPSetOperators(ksp,flx->A,flx->A); CHKERRQ(ierr);
+        ierr = KSPGetPC(ksp,&pc); CHKERRQ(ierr);
+        ierr = PCSetType(pc,PCLU); CHKERRQ(ierr);
+        ierr = KSPSetUp(ksp); CHKERRQ(ierr);
         ierr = compute_residual();CHKERRQ(ierr);
 
         if ((iter%10 == 0) || iter < 10)

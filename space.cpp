@@ -472,7 +472,9 @@ PetscErrorCode flux::int_element_flux_jacobian(const PetscInt &elem)
   PetscInt idx[mesh.nvars];
 
   
+
   Jel = Eigen::MatrixXd::Zero(mesh.nvars,mesh.nvars);
+
   for (int i = 0; i < mesh.nvars; i++)
   {
     idx[i] = elem*mesh.nvars + i;
@@ -524,8 +526,8 @@ PetscErrorCode flux::int_element_flux_jacobian(const PetscInt &elem)
   //Row 2 (Row 1 & 3 are zeros)
   k = si-sm;
   Qel(1,0) = k*(gamma-1)*0.5*pow(wel[1],2)/pow(wel[0],2);
-  Qel(2,0) = -k*(gamma-1)*wel[1]/wel[0];
-  Qel(3,0) = k*(gamma-1);
+  Qel(1,1) = -k*(gamma-1)*wel[1]/wel[0];
+  Qel(1,2) = k*(gamma-1);
  
   return ierr;
 
@@ -901,23 +903,28 @@ PetscErrorCode flux::inlet_bc(){
 
     for(PetscInt iel=1; iel < mesh.ngrid-1; iel++)
     {
+      std::cout << iel << std::endl;
       // Prelimnary Data from the element
       ierr = get_elem_eigen(iel); CHKERRQ(ierr);
       ierr = VecGetValues(mesh.vol,1,&iel,&vi); CHKERRQ(ierr);
       ierr = VecGetValues(mesh.sw,1,&iel,&sm); CHKERRQ(ierr);
       int el = iel+1;
       ierr = VecGetValues(mesh.sw,1,&el,&sp); CHKERRQ(ierr);
+      
 
       //############## L block begins ########################
       el = iel-1;
-      for (int j = 0; j < mesh.ngrid; j++)
+      for (int j = 0; j < mesh.nvars; j++)
       {
+        
         //L rows and columns. You have to shift the indices like this you are solving only from 1 to ngrid-1
         idxr[j] = el*mesh.nvars + j;
         idxc[j] = (el-1)*mesh.nvars + j;
       }
+      
       ierr = int_element_flux_jacobian(el); CHKERRQ(ierr);
       Jel = -0.5*(Jel + epsilon*lm*Imat)*sm/vi; // Lmat
+      
 
       if(iel>1) 
       {
@@ -937,11 +944,16 @@ PetscErrorCode flux::inlet_bc(){
 
       //############## U block begins ########################
       el = iel+1;
-      for (int j = 0; j < mesh.ngrid; j++)
+      for (int j = 0; j < mesh.nvars; j++)
       {
-        //L rows and columns. You have to shift the indices like this you are solving only from 1 to ngrid-1
+        //L rows and columns. You have to shift the indices like this you are solving only from 1 to ngrid-2
         idxr[j] = el*mesh.nvars + j;
         idxc[j] = (el+1)*mesh.nvars + j;
+        if (iel==14)
+        {
+          std::cout << idxr[j] << " " << idxc[j] << std::endl;
+        }
+        
       }
       ierr = int_element_flux_jacobian(el); CHKERRQ(ierr);
       Jel = 0.5*(Jel + epsilon*lp*Imat)*sp/vi; // Umat
@@ -951,7 +963,6 @@ PetscErrorCode flux::inlet_bc(){
         //Write values only for when the element is > 1.
         ierr = MatSetValuesBlocked(A, mesh.nvars, idxr, mesh.nvars, idxc, Jel.data(), INSERT_VALUES); CHKERRQ(ierr);
         Jb = Eigen::MatrixXd::Zero(mesh.nvars,mesh.nvars); // No boundary value then
-
       }
       else
       {
@@ -962,15 +973,16 @@ PetscErrorCode flux::inlet_bc(){
       //############## U block ends ########################
 
       //############## Diagonal block begins ###################
-      for (int j = 0; j < mesh.ngrid; j++)
+      for (int j = 0; j < mesh.nvars; j++)
       {
         //Diagonal rows and columns. You have to shift the indices like this you are solving only from 1 to ngrid-1
         idxr[j] = (iel-1)*mesh.nvars + j;
         idxc[j] = (iel-1)*mesh.nvars + j;
       }
-      
+  
       ierr = int_element_flux_jacobian(iel); CHKERRQ(ierr);
       ierr = int_element_source_jacobian(iel); CHKERRQ(ierr);
+      std::cout << "boop"<< 985 << std::endl;
 
       Jel = (Imat/dt + 0.5*(Jel + epsilon*lp*Imat)*sp - 0.5*(Jel - epsilon*lm*Imat)*sm - Qel)/vi + Jb;      
 

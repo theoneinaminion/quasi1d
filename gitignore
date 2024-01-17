@@ -12,6 +12,7 @@ build/**
 *.json
 *.o
 *.dat
+*.m
 
 \#*\#
 
