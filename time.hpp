@@ -1,4 +1,5 @@
 #include "space.hpp"
+#include "petscmat.h" 
 #define DEBUG 0
 
 class Solver{
@@ -17,13 +18,14 @@ class Solver{
     Vec dw; /**< Increment conservative vector*/
     KSP ksp; /**< KSP Object*/
 
-    PetscScalar resnrm; /**< Non-Linear Residual norm*/
+    PetscScalar resnrm = 10; /**< Non-Linear Residual norm initialized to 10*/
     PetscScalar prev_resnrm; /**< Non-Linear Residual norm at previous time step*/
 
     PetscScalar dt; /**< Time step*/
     PetscScalar CFL; /**< CFL number*/
     PetscScalar relax = 0.9; /**< Under Relaxation factor*/
     PetscScalar restol = 1e-6; /**< Tolerance for Non-Linear solver*/
+    PetscInt    maxiter = 100; /**< Maximum number of iterations for Non-Linear solver*/
 
     /**
      * @brief Setup KSP object
@@ -36,7 +38,7 @@ class Solver{
      * dt = prev_resnrm/resnrm
      * 
      */
-    void new_time_step();
+    void adapt_time_step();
 
  
     /**

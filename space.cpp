@@ -64,7 +64,7 @@ flow::flow(const Mesh &msh, const PetscScalar p_ratio) {
     
 
     pr = p_ratio;
-    p_exit = pr*p_t;
+
     rho_t = p_t/(R*T_t); //Total density
     c_t = sqrt(gamma*R*T_t); //Total speed of sound
     E_tot = p_t/(gamma-1) + init_mach*rho_t*pow(0.5*c_t,2); //Total energy when velocity = 0.5*ct
@@ -87,6 +87,9 @@ flow::flow(const Mesh &msh, const PetscScalar p_ratio) {
 
     E_sc        = rho_sc*pow(u_sc,2);
     E_tot       = E_tot/E_sc;
+
+    //Set exit pressure for boundary conditions
+    p_exit = pr*p_t;
 
     //Construct the vectors of flow properties at cell centres
    

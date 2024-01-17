@@ -43,13 +43,14 @@ Solver::~Solver()
 
 }
 
-void Solver::new_time_step()
+void Solver::adapt_time_step()
 {
-    dt = prev_resnrm/resnrm;
+    dt = dt*prev_resnrm/resnrm;
     
 }
 
-PetscErrorCode Solver::setup_ksp(){
+PetscErrorCode Solver::setup_ksp()
+{
 
     PetscErrorCode ierr;
     PC pc;
@@ -149,7 +150,6 @@ PetscErrorCode Solver::compute_resnrm()
         
     }
     resnrm = std::sqrt(nrm);
-    std::cout << "Log Non-Linear Residual norm is: " << std::log10(resnrm) << std::endl;
     return ierr;
     
 }
@@ -217,7 +217,7 @@ PetscErrorCode Solver::write_soln()
 
 }
 
-PetscErrorCode Solver::writePetscObj(Mat &A, std::string name)
+PetscErrorCode Solver::writePetscObj(const Mat &A, std::string name)
 	
 {
 
@@ -241,32 +241,33 @@ PetscErrorCode Solver::solve()
  
     PetscErrorCode ierr;
     ierr = 0;
-    
-    //################ Basic structure begins ################
-    /*
-        flx.initialize_primitives();
-        
-        ierr =setup_ksp();
-        while (resnrm>tol)
-        {
-            prev_res = res;
-            flx.assemble_conservative_vec();
-            flx.assemble_flux_vec();
-            flx.assemble_source_vec();
-            flx.assemble_jacobian();
-            flx.assemble_residual();
-            KSPSolve()
-            updatesoln();
-            flx.conservative_to_primitive();
-            VecNorm(res,NORM_2,&resnrm);
-        }
-            write_solution();
-            
+    PetscInt iter = 0;
 
-        
-    */
-   //################ Basic structure Ends ################
+    //Initializing 
+    ierr = flx->initialize_primitives();CHKERRQ(ierr);
+    ierr = flx->assemble_conservative_vec();CHKERRQ(ierr);
 
+    // Setup KSP
+    ierr = setup_ksp(); CHKERRQ(ierr);
+
+    while ((resnrm > restol) && (iter < maxiter))
+    {
+        prev_resnrm = resnrm;
+        iter = iter + 1;
+       
+        ierr = flx->assemble_jacobian(dt);CHKERRQ(ierr);
+        ierr = compute_residual();CHKERRQ(ierr);
+
+        if ((iter%10 == 0) || iter < 10)
+            std::cout << "Log Non-Linear Residual norm at iteration" << iter << "is: " << std::log10(resnrm) << std::endl;
+        
+        ierr = KSPSolve(ksp, res, dw); CHKERRQ(ierr);
+        
+        ierr = update_solution(); CHKERRQ(ierr);
+        adapt_time_step();
+        
+    }
+    ierr = flx->conserved_to_primitive(); CHKERRQ(ierr);   
    return ierr;
     
 
