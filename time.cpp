@@ -212,6 +212,9 @@ PetscErrorCode Solver::write_soln()
     ierr = writePetscObj(flx->M,"mach"); CHKERRQ(ierr);
     ierr = writePetscObj(flx->mesh.xc,"cell_centers"); CHKERRQ(ierr);
     ierr = writePetscObj(flx->p,"pressure"); CHKERRQ(ierr);
+    ierr = writePetscObj(flx->rho,"density"); CHKERRQ(ierr);
+    ierr = writePetscObj(dw,"Soln"); CHKERRQ(ierr);
+    ierr = writePetscObj(res,"residual"); CHKERRQ(ierr);
     return ierr;
 
 }
@@ -249,7 +252,7 @@ PetscErrorCode Solver::solve()
     // Setup KSP
     //ierr = setup_ksp(); CHKERRQ(ierr);
 
-    while ((resnrm > restol) && (iter < maxiter))
+    while ((resnrm > restol) && (iter <= maxiter))
     {
         prev_resnrm = resnrm;
         iter = iter + 1;

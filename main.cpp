@@ -37,12 +37,12 @@ int main(int argc,char **argv){
     PetscScalar pr = 0.8; // Pressure ratio
     flux flx(msh,pr);
     Solver slv(&flx);
-    //ierr = slv.solve(); CHKERRQ(ierr);
-    //ierr = slv.write_soln(); CHKERRQ(ierr); 
-    ierr = slv.flx->initialize_primitives();
-    ierr = slv.flx->assemble_conservative_vec();
-    ierr = slv.flx->assemble_jacobian(0.00001);
-    ierr = slv.writePetscObj(slv.flx->A, "A");
+    ierr = slv.solve(); CHKERRQ(ierr);
+    ierr = slv.write_soln(); CHKERRQ(ierr); 
+    // ierr = slv.flx->initialize_primitives();
+    // ierr = slv.flx->assemble_conservative_vec();
+    // ierr = slv.flx->assemble_jacobian(0.00001);
+    //ierr = slv.writePetscObj(slv.flx->A, "A");
     //ierr = slv.flx->assemble_flux_vec();
     //ierr = slv.flx->assemble_source_vec();
     //ierr = slv.compute_residual();

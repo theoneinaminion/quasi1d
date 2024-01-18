@@ -584,7 +584,7 @@ PetscErrorCode flux::inlet_bc(){
     PetscScalar Rm  = -u2-2*c2/(gamma-1);
     PetscScalar c02 = pow(c2,2) + 0.5*(gamma-1)*pow(u2,2);
     PetscScalar l   = -Rm*(gamma-1)/(gamma+1);
-    PetscScalar k   = (c02/pow(Rm,2))*(gamma-1)/(gamma+1) - 0.5*(gamma-1);
+    PetscScalar k   = (c02/pow(Rm,2))*(gamma+1)/(gamma-1) - 0.5*(gamma-1);
     c1  = l*(1+sqrt(k));
 
     T1 = T_t*(pow(c1,2)/c02);
