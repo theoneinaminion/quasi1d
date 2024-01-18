@@ -196,13 +196,12 @@ PetscErrorCode Solver::writePetscObj(const Vec &v, std::string name)
 {
 
 	PetscViewer viewer;
-	const std::string namefin = name + ".dat";
-	PetscCall(VecView(v, PETSC_VIEWER_STDOUT_WORLD));
-    
+    PetscErrorCode ierr;
+	const std::string namefin = name + ".dat";   
     std::cout << "Writing the file: " << namefin << std::endl;
-	PetscCall(PetscViewerASCIIOpen(PETSC_COMM_WORLD, namefin.c_str(), &viewer));
-	PetscCall(VecView(v, viewer));
-	PetscCall(PetscViewerDestroy(&viewer));
+	ierr = PetscViewerASCIIOpen(PETSC_COMM_WORLD, namefin.c_str(), &viewer); CHKERRQ(ierr);
+	ierr = VecView(v, viewer); CHKERRQ(ierr);
+	ierr = PetscViewerDestroy(&viewer); CHKERRQ(ierr);
 	return 0;
 
 } 
@@ -222,16 +221,15 @@ PetscErrorCode Solver::writePetscObj(const Mat &A, std::string name)
 {
 
     PetscViewer viewer;
-
+    PetscErrorCode ierr;
     const std::string namefin = name + ".m";
-    PetscCall(MatView(A, PETSC_VIEWER_STDOUT_WORLD));
     std::cout << "Writing the file: " << namefin << std::endl;
-    PetscCall(PetscViewerASCIIOpen(PETSC_COMM_WORLD, namefin.c_str(), &viewer));
-    PetscCall(PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB));
-    PetscCall(MatView(A, viewer));
+    ierr = PetscViewerASCIIOpen(PETSC_COMM_WORLD, namefin.c_str(), &viewer); CHKERRQ(ierr);
+    ierr = PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB); CHKERRQ(ierr);
+    ierr = MatView(A, viewer); CHKERRQ(ierr);
 
-    PetscCall(PetscViewerDestroy(&viewer));
-    return 0;
+    ierr = PetscViewerDestroy(&viewer); CHKERRQ(ierr);
+    return ierr;
 
 } 
 

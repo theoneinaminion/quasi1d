@@ -42,7 +42,7 @@ int main(int argc,char **argv){
     ierr = slv.flx->initialize_primitives();
     ierr = slv.flx->assemble_conservative_vec();
     ierr = slv.flx->assemble_jacobian(0.00001);
-    //ierr = slv.writePetscObj(slv.flx->A, "A");
+    ierr = slv.writePetscObj(slv.flx->A, "A");
     //ierr = slv.flx->assemble_flux_vec();
     //ierr = slv.flx->assemble_source_vec();
     //ierr = slv.compute_residual();
