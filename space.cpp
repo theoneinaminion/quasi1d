@@ -235,7 +235,7 @@ PetscErrorCode flux::initialize_primitives() {
 
     PetscScalar temp;
     PetscErrorCode ierr; 
-    ierr = VecSet(p,p_t); CHKERRQ(ierr);
+    ierr = VecSet(p,p_exit); CHKERRQ(ierr);
     ierr = VecSet(T,T_t); CHKERRQ(ierr);
     ierr = VecSet(rho,rho_t); CHKERRQ(ierr);
     ierr = VecSet(E,E_tot); CHKERRQ(ierr);

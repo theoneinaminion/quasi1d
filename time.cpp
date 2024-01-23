@@ -57,8 +57,8 @@ PetscErrorCode Solver::setup_ksp()
     ierr = KSPSetType(ksp,KSPPREONLY); CHKERRQ(ierr);
     ierr = KSPGetPC(ksp,&pc); CHKERRQ(ierr);
     ierr = PCSetType(pc,PCLU); CHKERRQ(ierr);
-    ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
-    ierr = KSPSetUp(ksp); CHKERRQ(ierr);
+    //ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
+    //ierr = KSPSetUp(ksp); CHKERRQ(ierr);
     std::cout << "KSP Object setup complete"<<std::endl;
     return ierr;
 
@@ -209,6 +209,12 @@ PetscErrorCode Solver::writePetscObj(const Vec &v, std::string name)
 PetscErrorCode Solver::write_soln()
 {
     PetscErrorCode ierr;
+
+    std::filesystem::path dir("data");
+    if (!std::filesystem::exists(dir)) {
+        std::filesystem::create_directory(dir);
+}
+    chdir("data");
     ierr = writePetscObj(flx->M,"mach"); CHKERRQ(ierr);
     ierr = writePetscObj(flx->mesh.xc,"cell_centers"); CHKERRQ(ierr);
     ierr = writePetscObj(flx->p,"pressure"); CHKERRQ(ierr);
@@ -225,6 +231,7 @@ PetscErrorCode Solver::writePetscObj(const Mat &A, std::string name)
 
     PetscViewer viewer;
     PetscErrorCode ierr;
+    chdir("data");
     const std::string namefin = name + ".m";
     std::cout << "Writing the file: " << namefin << std::endl;
     ierr = PetscViewerASCIIOpen(PETSC_COMM_WORLD, namefin.c_str(), &viewer); CHKERRQ(ierr);
@@ -250,7 +257,7 @@ PetscErrorCode Solver::solve()
     ierr = flx->assemble_conservative_vec();CHKERRQ(ierr);
 
     // Setup KSP
-    //ierr = setup_ksp(); CHKERRQ(ierr);
+    ierr = setup_ksp(); CHKERRQ(ierr);
 
     while ((resnrm > restol) && (iter <= maxiter))
     {
@@ -258,22 +265,19 @@ PetscErrorCode Solver::solve()
         iter = iter + 1;
        
         ierr = flx->assemble_jacobian(dt);CHKERRQ(ierr);
-        ierr = KSPSetOperators(ksp,flx->A,flx->A); CHKERRQ(ierr);
-        ierr = KSPGetPC(ksp,&pc); CHKERRQ(ierr);
-        ierr = PCSetType(pc,PCLU); CHKERRQ(ierr);
-        ierr = KSPSetUp(ksp); CHKERRQ(ierr);
         ierr = compute_residual();CHKERRQ(ierr);
 
         if ((iter%10 == 0) || iter < 10)
-            std::cout << "Log Non-Linear Residual norm at iteration" << iter << "is: " << std::log10(resnrm) << std::endl;
+            std::cout << "Log Non-Linear Residual norm at iteration " << iter << " is: " << std::log10(resnrm) << std::endl;
         
         ierr = KSPSolve(ksp, res, dw); CHKERRQ(ierr);
         
         ierr = update_solution(); CHKERRQ(ierr);
+        writePetscObj(flx->A,"A");
         adapt_time_step();
-        
+        ierr = flx->conserved_to_primitive(); CHKERRQ(ierr); 
     }
-    ierr = flx->conserved_to_primitive(); CHKERRQ(ierr);   
+      
    return ierr;
     
 

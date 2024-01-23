@@ -1,5 +1,9 @@
+#pragma once
 #include "space.hpp"
 #include "petscmat.h" 
+#include <filesystem>
+#include <unistd.h>
+
 #define DEBUG 0
 
 class Solver{
@@ -25,7 +29,7 @@ class Solver{
     PetscScalar CFL; /**< CFL number*/
     PetscScalar relax = 0.9; /**< Under Relaxation factor*/
     PetscScalar restol = 1e-6; /**< Tolerance for Non-Linear solver*/
-    PetscInt    maxiter = 100; /**< Maximum number of iterations for Non-Linear solver*/
+    PetscInt    maxiter = 10; /**< Maximum number of iterations for Non-Linear solver*/
 
     /**
      * @brief Setup KSP object

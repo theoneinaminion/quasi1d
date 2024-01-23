@@ -2,6 +2,7 @@
 *.directory
 *~
 build/** 
+data/**
 
 *.vtu
 *.control

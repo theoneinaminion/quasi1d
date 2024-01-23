@@ -91,7 +91,7 @@ class flow {
     PetscScalar rho_t;                        /**< Total Density*/
     PetscScalar R = 1716;                     /**< Gas constant*/
     PetscScalar cp;                           /**< Total pressure*/
-    PetscScalar init_mach = 0.1;              /**< Initial Mach number just to initialize things*/
+    PetscScalar init_mach = 0.5;              /**< Initial Mach number just to initialize things*/
 
 
    
