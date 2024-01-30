@@ -15,8 +15,26 @@
 #  For a multi-file case, suppose you have the source files a.c, b.c, and c.cxx
 #  This can be built by uncommenting the following two lines.
 #
-exec : space.o main.o time.o
-		$(LINK.C) -o $@ $^ $(LDLIBS)
+CPP_FILES := $(wildcard *.cpp)
+#ODIR := build
+# Generate a list of .o files from the .cpp files.
+# Create the object directory if it doesn't exist.
+#$(ODIR):
+#	mkdir -p $(ODIR)
+
+OBJ_FILES := $(patsubst %.cpp,%.o,$(CPP_FILES))
+
+#$(ODIR)/%.o: %.cpp | $(ODIR)
+#	$(CXX) -c -o $@ $< $(CXXFLAGS)
+
+# Link rule.
+exec : $(OBJ_FILES)
+	$(LINK.C) -o $@ $^ $(LDLIBS)
+clean:
+	rm -f $(OBJ_FILES) exec
+
+#exec : space.o main.o time.o
+#		$(LINK.C) -o $@ $^ $(LDLIBS)
 
 #
 #  When linking in a multi-files with Fortran source files a.F90, b.c, and c.cxx

@@ -82,11 +82,11 @@ class flow {
     PetscScalar M_exit; /**< Exit Mach number*/
 
     //Constants
-    PetscScalar gamma    = 1.5;                /**< Specific heat ratio*/
-    PetscScalar p_t      = 2117;               /**< Total pressure*/
-    PetscScalar T_t      = 531.2;              /**< Total temperature*/
-    PetscScalar c_t;                            /**< Total speed of sound*/
-    PetscScalar E_tot;                           /**< Energy correspondng to total conditions*/         
+    PetscScalar gamma;                      /**< Specific heat ratio*/
+    PetscScalar p_t;                        /**< Total pressure*/
+    PetscScalar T_t;                        /**< Total temperature*/
+    PetscScalar c_t;                       /**< Total speed of sound*/
+    PetscScalar E_tot;                     /**< Energy correspondng to total conditions*/         
     PetscScalar pr;                           /**< Pressure ratio*/
     PetscScalar rho_t;                        /**< Total Density*/
     PetscScalar R = 1716;                     /**< Gas constant*/

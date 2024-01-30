@@ -37,6 +37,7 @@ int main(int argc,char **argv){
     PetscScalar pr = 0.8; // Pressure ratio
     flux flx(msh,pr);
     Solver slv(&flx);
+    
     ierr = slv.solve(); CHKERRQ(ierr);
     ierr = slv.write_soln(); CHKERRQ(ierr); 
     return ierr;

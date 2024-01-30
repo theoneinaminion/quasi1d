@@ -65,6 +65,12 @@ flow::flow(const Mesh &msh, const PetscScalar p_ratio) {
 
     pr = p_ratio;
 
+    // Given Constants
+    gamma    = 1.4;           
+    p_t      = 2117;               
+    T_t      = 531.2;
+    R = 1716; 
+
     rho_t = p_t/(R*T_t); //Total density
     c_t = sqrt(gamma*R*T_t); //Total speed of sound
     E_tot = p_t/(gamma-1) + init_mach*rho_t*pow(0.5*c_t,2); //Total energy when velocity = 0.5*ct
@@ -232,17 +238,35 @@ PetscErrorCode flux::initialize_primitives() {
      * 
      */
 
-
-    PetscScalar temp;
     PetscErrorCode ierr; 
+    std::cout << "Initializing primitives..."<<std::endl;
+
     ierr = VecSet(p,p_exit); CHKERRQ(ierr);
-    ierr = VecSet(T,T_t); CHKERRQ(ierr);
-    ierr = VecSet(rho,rho_t); CHKERRQ(ierr);
-    ierr = VecSet(E,E_tot); CHKERRQ(ierr);
-    temp = init_mach*c_t; CHKERRQ(ierr);
-    ierr = VecSet(u, temp); CHKERRQ(ierr);
-    ierr = VecSet(c,c_t); CHKERRQ(ierr);
-    ierr = VecSet(M,init_mach); CHKERRQ(ierr);
+    std::cout << "Initializing Pressure to p_exit = "<<p_exit<<std::endl;
+    
+    T_exit = T_t*(pow(p_exit/p_t,(gamma-1)/gamma));
+    ierr = VecSet(T,T_exit); CHKERRQ(ierr);
+    std::cout << "Initializing Temperature to T_exit = "<<T_exit<<std::endl;
+
+    rho_exit = p_exit/(R*T_exit);
+    ierr = VecSet(rho,rho_exit); CHKERRQ(ierr);
+    std::cout << "Initializing Density to rho_exit = "<<rho_exit<<std::endl;
+
+    M_exit = sqrt(2*(T_t/T_exit - 1)/(gamma-1));
+    ierr = VecSet(M,M_exit); CHKERRQ(ierr);
+    std::cout << "Initializing Mach number to M_exit = "<<M_exit<<std::endl;
+
+    c_exit = sqrt(gamma*R*T_exit);
+    ierr = VecSet(c,c_exit); CHKERRQ(ierr);
+    std::cout << "Initializing Speed of sound to c_exit = "<<c_exit<<std::endl;
+
+    u_exit = M_exit*c_exit;
+    ierr = VecSet(u,u_exit); CHKERRQ(ierr);
+    std::cout << "Initializing Velocity to u_exit = "<<u_exit<<std::endl;
+
+    E_exit = p_exit/(gamma-1) + 0.5*rho_exit*pow(u_exit,2); 
+    ierr = VecSet(E,E_exit); CHKERRQ(ierr);
+    std::cout << "Initializing Energy to E_exit = "<<E_exit<<std::endl;
 
     return ierr;
 
@@ -318,9 +342,14 @@ PetscErrorCode flux::element_flux(const PetscInt &elem){
     ierr = VecGetValues(w, mesh.nvars, idx, welem); CHKERRQ(ierr);
 
     //Components of flux vector
-    felem[0] = welem[0];
-    felem[1] = welem[1]/welem[0];
-    felem[2] = (gamma-1)*(welem[2] - 0.5*welem[0]*pow(felem[1],2));
+    PetscScalar rtemp = welem[0];
+    PetscScalar utemp = welem[1]/welem[0];
+    PetscScalar Etemp = welem[2];
+    PetscScalar ptemp = (gamma-1)*(Etemp - 0.5*rtemp*pow(utemp,2));
+    
+    felem[0] = rtemp*utemp; //Mass
+    felem[1] = rtemp*pow(utemp,2) + ptemp; //Momentum
+    felem[2] = (Etemp + ptemp)*utemp; //Energy
     return ierr;
 
 
@@ -484,7 +513,7 @@ PetscErrorCode flux::int_element_flux_jacobian(const PetscInt &elem)
   // The analytical Jacobian
 
   //Row 1
-  Jel(0,0) = 0;Jel(0,1) = 1;Jel(0,2) = 0; 
+  Jel(0,0) = 0; Jel(0,1) = 1; Jel(0,2) = 0; 
 
   //Row 2
   Jel(1,0) = -0.5*(3-gamma)*pow(wel[1],2)/pow(wel[0],2);

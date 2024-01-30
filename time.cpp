@@ -136,7 +136,7 @@ PetscErrorCode Solver::compute_resnrm()
 {
     PetscErrorCode ierr;
     PetscInt idx[flx->mesh.nvars], el;
-    PetscScalar relem[flx->mesh.nvars], nrm = 0.0; 
+    PetscScalar relem[flx->mesh.nvars], maxval = 0.0; 
 
     for (PetscInt iel = 1; iel < flx->mesh.ngrid-1; iel++)
     {
@@ -146,10 +146,12 @@ PetscErrorCode Solver::compute_resnrm()
             idx[i] = el*flx->mesh.nvars + i; 
         }
         ierr = VecGetValues(res,flx->mesh.nvars,idx,relem); CHKERRQ(ierr);
-        nrm += relem[0]*relem[0]; 
+        //PetscScalar nrm += relem[0]*relem[0];
+        maxval =  std::max(maxval, std::abs(relem[0]));
         
     }
-    resnrm = std::sqrt(nrm);
+    //resnrm = std::sqrt(nrm);
+    resnrm = maxval;
     return ierr;
     
 }
@@ -221,6 +223,8 @@ PetscErrorCode Solver::write_soln()
     ierr = writePetscObj(flx->rho,"density"); CHKERRQ(ierr);
     ierr = writePetscObj(dw,"Soln"); CHKERRQ(ierr);
     ierr = writePetscObj(res,"residual"); CHKERRQ(ierr);
+    ierr = writePetscObj(flx->w,"cons"); CHKERRQ(ierr);
+    ierr = writePetscObj(flx->f,"flux"); CHKERRQ(ierr);
     return ierr;
 
 }
@@ -249,8 +253,8 @@ PetscErrorCode Solver::solve()
  
     PetscErrorCode ierr;
     ierr = 0;
-    PC pc;
     PetscInt iter = 0;
+    maxiter = 0;
 
     //Initializing 
     ierr = flx->initialize_primitives();CHKERRQ(ierr);
@@ -268,7 +272,7 @@ PetscErrorCode Solver::solve()
         ierr = compute_residual();CHKERRQ(ierr);
 
         if ((iter%10 == 0) || iter < 10)
-            std::cout << "Log Non-Linear Residual norm at iteration " << iter << " is: " << std::log10(resnrm) << std::endl;
+            std::cout << "Non-Linear Residual norm at iteration " << iter << " is: " << (resnrm) << std::endl;
         
         ierr = KSPSolve(ksp, res, dw); CHKERRQ(ierr);
         
