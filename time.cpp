@@ -69,7 +69,7 @@ PetscErrorCode Solver::compute_residual()
    
    PetscErrorCode ierr;
    PetscInt idx[flx->mesh.nvars];
-   PetscScalar sm, sp, vi, fi[flx->mesh.nvars], fp[flx->mesh.nvars],fm[flx->mesh.nvars], wi[flx->mesh.nvars], wp[flx->mesh.nvars], wm[flx->mesh.nvars], q[flx->mesh.nvars],res_elem[flx->mesh.nvars];
+   PetscScalar sm, sp, vi, fi[flx->mesh.nvars], fp[flx->mesh.nvars],fm[flx->mesh.nvars], wi[flx->mesh.nvars], wp[flx->mesh.nvars], wm[flx->mesh.nvars], qi[flx->mesh.nvars],res_elem[flx->mesh.nvars];
    
    ierr = flx->assemble_flux_vec(); CHKERRQ(ierr); //Build the flux vector
    ierr = flx->assemble_source_vec(); CHKERRQ(ierr); //Build the source vector
@@ -91,7 +91,7 @@ PetscErrorCode Solver::compute_residual()
         }
         ierr = VecGetValues(flx->f,flx->mesh.nvars,idx,fi); CHKERRQ(ierr);
         ierr = VecGetValues(flx->w,flx->mesh.nvars,idx,wi); CHKERRQ(ierr);
-        ierr = VecGetValues(flx->q,flx->mesh.nvars,idx,q); CHKERRQ(ierr);
+        ierr = VecGetValues(flx->q,flx->mesh.nvars,idx,qi); CHKERRQ(ierr);
        
       //At iel+1
         el = iel+1;
@@ -118,7 +118,7 @@ PetscErrorCode Solver::compute_residual()
             PetscScalar fph = 0.5*(fp[i] + fi[i] - flx->epsilon*flx->lp*(wp[i] - wi[i]));
             PetscScalar fmh = 0.5*(fi[i] + fm[i] - flx->epsilon*flx->lm*(wi[i] - wm[i]));
 
-            res_elem[i] = (fph*sp - fmh*sm -q[i])/vi;
+            res_elem[i] = (fph*sp - fmh*sm -qi[i])/vi;
         }
 
         // Assemble the residual vector (indices are corresponding to iel-1 since boundaries are ignored)
@@ -126,8 +126,10 @@ PetscErrorCode Solver::compute_residual()
         
 
     }
+    
     ierr = VecAssemblyBegin(res); CHKERRQ(ierr);
     ierr = VecAssemblyEnd(res); CHKERRQ(ierr);
+    ierr = VecScale(res,-1); CHKERRQ(ierr); //To the RHS
     ierr = compute_resnrm(); CHKERRQ(ierr);
     return ierr;
 }
@@ -225,6 +227,7 @@ PetscErrorCode Solver::write_soln()
     ierr = writePetscObj(res,"residual"); CHKERRQ(ierr);
     ierr = writePetscObj(flx->w,"cons"); CHKERRQ(ierr);
     ierr = writePetscObj(flx->f,"flux"); CHKERRQ(ierr);
+    ierr = writePetscObj(flx->q,"src"); CHKERRQ(ierr);
     return ierr;
 
 }
@@ -254,7 +257,7 @@ PetscErrorCode Solver::solve()
     PetscErrorCode ierr;
     ierr = 0;
     PetscInt iter = 0;
-    maxiter = 0;
+    maxiter = 10000;
 
     //Initializing 
     ierr = flx->initialize_primitives();CHKERRQ(ierr);
@@ -262,7 +265,6 @@ PetscErrorCode Solver::solve()
 
     // Setup KSP
     ierr = setup_ksp(); CHKERRQ(ierr);
-
     while ((resnrm > restol) && (iter <= maxiter))
     {
         prev_resnrm = resnrm;
@@ -271,13 +273,13 @@ PetscErrorCode Solver::solve()
         ierr = flx->assemble_jacobian(dt);CHKERRQ(ierr);
         ierr = compute_residual();CHKERRQ(ierr);
 
-        if ((iter%10 == 0) || iter < 10)
+        if ((iter%1000 == 0) || iter < 10)
             std::cout << "Non-Linear Residual norm at iteration " << iter << " is: " << (resnrm) << std::endl;
         
         ierr = KSPSolve(ksp, res, dw); CHKERRQ(ierr);
         
         ierr = update_solution(); CHKERRQ(ierr);
-        writePetscObj(flx->A,"A");
+        //writePetscObj(flx->A,"A");
         adapt_time_step();
         ierr = flx->conserved_to_primitive(); CHKERRQ(ierr); 
     }

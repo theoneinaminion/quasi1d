@@ -30,9 +30,9 @@ class Mesh {
 
 
     /**< Nozzle Geometry*/
-    PetscScalar h = 0.15;
-    PetscScalar t1 = 0.8;
-    PetscScalar t2 = 3;
+    PetscScalar h;
+    PetscScalar t1;
+    PetscScalar t2;
 
     Vec xw; /**< wall points*/
     Vec xc; /**< cell centers*/

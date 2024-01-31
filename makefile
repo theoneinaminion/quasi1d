@@ -23,15 +23,22 @@ CPP_FILES := $(wildcard *.cpp)
 #	mkdir -p $(ODIR)
 
 OBJ_FILES := $(patsubst %.cpp,%.o,$(CPP_FILES))
-
+DAT := ./data
 #$(ODIR)/%.o: %.cpp | $(ODIR)
 #	$(CXX) -c -o $@ $< $(CXXFLAGS)
 
 # Link rule.
 exec : $(OBJ_FILES)
 	$(LINK.C) -o $@ $^ $(LDLIBS)
+	@if [ -d "${DAT}" ]; then \
+		rm -r ${DAT}; \
+	fi 
 clean:
 	rm -f $(OBJ_FILES) exec
+	@if [ -d "${DAT}" ]; then \
+		rm -r ${DAT}; \
+	fi 
+	
 
 #exec : space.o main.o time.o
 #		$(LINK.C) -o $@ $^ $(LDLIBS)

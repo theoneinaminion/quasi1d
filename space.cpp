@@ -2,6 +2,10 @@
 
 void Mesh::generate_grid() {
 
+    h = 0.15;
+    t1 = 0.72;
+    t2 = 3;
+
     VecCreateSeq(PETSC_COMM_SELF,ngrid+1,&xw);
     VecCreateSeq(PETSC_COMM_SELF,ngrid,&xc);
     VecCreateSeq(PETSC_COMM_SELF,ngrid+1,&sw);
@@ -516,13 +520,13 @@ PetscErrorCode flux::int_element_flux_jacobian(const PetscInt &elem)
   Jel(0,0) = 0; Jel(0,1) = 1; Jel(0,2) = 0; 
 
   //Row 2
-  Jel(1,0) = -0.5*(3-gamma)*pow(wel[1],2)/pow(wel[0],2);
+  Jel(1,0) = -0.5*(3-gamma)*pow(wel[1]/wel[0],2);
   Jel(1,1) = (3-gamma)*wel[1]/wel[0];
   Jel(1,2) = gamma-1;
 
   //Row 3
-  Jel(2,0) = (gamma-1)*pow(wel[1],3)/pow(wel[0],3) - gamma*wel[2]*wel[1]/pow(wel[0],2); 
-  Jel(2,1) = gamma*wel[2]/wel[0] - 1.5*(gamma-1)*pow(wel[1],2)/pow(wel[0],2);
+  Jel(2,0) = (gamma-1)*pow(wel[1]/wel[0],3) - gamma*wel[2]*wel[1]/pow(wel[0],2); 
+  Jel(2,1) = gamma*wel[2]/wel[0] - 1.5*(gamma-1)*pow(wel[1]/wel[0],2);
   Jel(2,2) = gamma*wel[1]/wel[0];
 
   return ierr;
@@ -554,7 +558,7 @@ PetscErrorCode flux::int_element_flux_jacobian(const PetscInt &elem)
 
   //Row 2 (Row 1 & 3 are zeros)
   k = si-sm;
-  Qel(1,0) = k*(gamma-1)*0.5*pow(wel[1],2)/pow(wel[0],2);
+  Qel(1,0) = k*(gamma-1)*0.5*pow(wel[1]/wel[0],2);
   Qel(1,1) = -k*(gamma-1)*wel[1]/wel[0];
   Qel(1,2) = k*(gamma-1);
  
@@ -747,17 +751,22 @@ PetscErrorCode flux::inlet_bc(){
 
     PetscScalar me = (u1+u2)/(c1+c2);
 
-    if(me<1)
+    if(me<=1)
     {
-      PetscScalar c0 = sqrt(pow(c1,2) + 0.5*(gamma-1)*pow(u1,2));  // Total speed of sound
       p2 = p_exit;
-      r2 = r1 + (p2 - p1)/(pow(c0,2));
-      u2 = u1 + (p1 - p2)/(r1*c0);
+      r2 = r1 + (p2 - p1)/(pow(c1,2));
+      u2 = u1 + (p1 - p2)/(r1*c1);
       PetscScalar E2 = p2/(gamma-1) + 0.5*r2*pow(u2,2);
 
       w2[0] = r2;
       w2[1] = r2*u2;
       w2[2] = E2;
+    }
+    else
+    {
+      w2[0] = w1[0];
+      w2[1] = w1[1];
+      w2[2] = w1[2];
     }
 
     //Updating the last element
@@ -808,10 +817,9 @@ PetscErrorCode flux::inlet_bc(){
 
     if(me<1)
     {
-      PetscScalar c0 = sqrt(pow(c1,2) + 0.5*(gamma-1)*pow(u1,2));  // Total speed of sound
       p2 = p_exit;
-      r2 = r1 + (p2 - p1)/(pow(c0,2));
-      u2 = u1 + (p1 - p2)/(r1*c0);
+      r2 = r1 + (p2 - p1)/(pow(c1,2));
+      u2 = u1 + (p1 - p2)/(r1*c1);
       PetscScalar E2 = p2/(gamma-1) + 0.5*r2*pow(u2,2);
 
       // Temporarily storing it in welem to be used in Jacobian update
@@ -859,6 +867,8 @@ PetscErrorCode flux::inlet_bc(){
       
     }
 
+    Jb.transposeInPlace();
+
     return ierr;
   }
 
@@ -898,6 +908,7 @@ PetscErrorCode flux::inlet_bc(){
       wb[i] = wb[i] - pert; // undoing it so that the coponent is unchanged for the next iteration
       
     }
+    Jb.transposeInPlace();
 
     return ierr;
   }
@@ -924,7 +935,6 @@ PetscErrorCode flux::inlet_bc(){
 
     max = std::max(0.5*(ui+um),0.5*(ui+um+ci+cm));
     lm = std::max(max,0.5*(ui+um-ci-cm));
-
     return ierr;
 
   }
@@ -952,9 +962,8 @@ PetscErrorCode flux::inlet_bc(){
       idxr = el; // row remains same throughout. Only column indices change
       //############## L block begins ########################
       idxc = el-1;
-      ierr = int_element_flux_jacobian(iel-1); CHKERRQ(ierr);
+      ierr = int_element_flux_jacobian(iel-1); CHKERRQ(ierr);      
       Jel = -0.5*(Jel + epsilon*lm*Imat)*sm/vi; // Lmat
-      
 
       if(el>0) 
       {
@@ -974,7 +983,7 @@ PetscErrorCode flux::inlet_bc(){
       //############## U block begins ########################
       idxc = el+1;
       ierr = int_element_flux_jacobian(iel+1); CHKERRQ(ierr);
-      Jel = 0.5*(Jel + epsilon*lp*Imat)*sp/vi; // Umat
+      Jel = 0.5*(Jel - epsilon*lp*Imat)*sp/vi; // Umat
       
       
       if(iel<mesh.ngrid-2) //Outer boundary has index of 49. So, 48 is the last interior element.
