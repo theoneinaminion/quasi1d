@@ -20,18 +20,6 @@ int main(int argc,char **argv){
     PetscInitialize(&argc,&argv,(char*)0,help);
     PetscErrorCode ierr;
 
-    //########## Structure of main.cpp begins ##########
-    /*
-     Mesh msh; 
-     msh.generate-grid();
-     PetscScalar pr = 0.8; // Pressure ratio
-     flux flx(msh,pr);
-     Solver slv(flx);
-     slv.solve();
-
-    */
-    //########## Structure of main.cpp ends ##########
-
     Mesh msh;
     msh.generate_grid();
     PetscScalar pr = 0.8; // Pressure ratio

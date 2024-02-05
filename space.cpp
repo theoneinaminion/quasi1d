@@ -79,23 +79,23 @@ flow::flow(const Mesh &msh, const PetscScalar p_ratio) {
     c_t = sqrt(gamma*R*T_t); //Total speed of sound
     E_tot = p_t/(gamma-1) + init_mach*rho_t*pow(0.5*c_t,2); //Total energy when velocity = 0.5*ct
 
-    p_sc = p_t;
-    T_sc = T_t;
-    rho_sc = rho_t;
+    p_sc = 1;//p_t;
+    T_sc = 1;//T_t;
+    rho_sc = 1;//rho_t;
 
     //Performing the scaling operation
     p_t           = p_t/p_sc;
     T_t           = T_t/T_sc;
     rho_t         = rho_t/rho_sc; 
 
-    R_sc         = p_sc/(rho_sc*T_sc);
+    R_sc         = 1; //p_sc/(rho_sc*T_sc);
     R            = R/R_sc;      
     cp           = gamma*R/(gamma-1);    /**< cp corresponding to scaled R*/
 
-    u_sc        = sqrt(p_sc/rho_sc);
+    u_sc        = 1; //sqrt(p_sc/rho_sc);
     c_t         = c_t/u_sc;  
 
-    E_sc        = rho_sc*pow(u_sc,2);
+    E_sc        = 1; //rho_sc*pow(u_sc,2);
     E_tot       = E_tot/E_sc;
 
     //Set exit pressure for boundary conditions
@@ -676,25 +676,31 @@ PetscErrorCode flux::inlet_bc(){
 
   PetscScalar mi = (u1+u2)/(c1+c2);
   // Updating the first element only duriing subsonic flow
-  if(mi<1) {
+  if(mi<=1) {
 
-    PetscScalar Rm  = -u2-2*c2/(gamma-1);
-    PetscScalar c02 = pow(c2,2) + 0.5*(gamma-1)*pow(u2,2);
-    PetscScalar l   = -Rm*(gamma-1)/(gamma+1);
-    PetscScalar k   = (c02/pow(Rm,2))*(gamma+1)/(gamma-1) - 0.5*(gamma-1);
-    c1  = l*(1.0+sqrt(k));
-    T1 = T_t*(pow(c1,2)/c02);
-    p1 = p_t*pow((T1/T_t),(gamma/(gamma-1)));
-    r1 = p1/(R*T1);
-    u1 = pow((2*cp*(T_t - T1)),0.5);
+    PetscScalar a1 = gamma/(gamma-1);
+    PetscScalar b1 = (gamma-1)/(gamma+1);
+    PetscScalar c_1 = 1./(gamma-1);
+
+    PetscScalar cv = R*c_1;
+    PetscScalar ast = 2*gamma*b1*cv*T_t;
+
+    PetscScalar pu = p_t*a1*(-2*b1*u1/ast)*pow((1-b1*pow(u1,2)/ast),c_1);
+    PetscScalar dt1 = 0.01*mesh.dx/(u1+c1);
+    PetscScalar l1 = 0.5*dt1*(u1+u2-c1-c2)/mesh.dx;
     
-    PetscScalar E1 = p1/(gamma-1) + 0.5*r1*pow(u1,2);
+    PetscScalar du = -l1*(p2-p1-r1*c1*(u2-u1))/(pu-r1*c1);
 
-    // This is temprary update of w1 stored here. It will be used in jacobian updating process. 
+    // Update the first element
+    u1 = u1 + du;;
+    T1 = T_t*(1-b1*pow(u1,2)/ast);
+    p1 = p_t*pow((T1/T_t),a1);
+    r1 = p1/(R*T1);
+    PetscScalar E1 = r1*(cv*T1 + 0.5*pow(u1,2));
+
     welem[0] = r1;
     welem[1] = r1*u1;
     welem[2] = E1;
-
   }
   else{
     welem[0] = w1[0];
@@ -790,7 +796,7 @@ PetscErrorCode flux::inlet_bc(){
 
     // Primitives at elem = ngrid-2 and ngrid-1 respectively.    
     PetscScalar r1,u1,p1,c1;
-    PetscScalar r2,u2,p2,c2;
+    PetscScalar r2,u2,p2,c2,T2;
     PetscInt elem = mesh.ngrid - 1;
     
     for (int i = 0; i < mesh.nvars; i++)
@@ -810,30 +816,47 @@ PetscErrorCode flux::inlet_bc(){
     r2 = w2[0];
     u2 = w2[1]/w2[0];
     p2 = (gamma-1)*(w2[2] - 0.5*pow(u2,2)*r2);
-    //T2 = p2/(R*r2);
+    T2 = p2/(R*r2);
     c2 = sqrt(gamma*p2/r2);
+
+
+    PetscScalar c_1 = 1./(gamma-1);
+    PetscScalar cv = R*c_1;
+    PetscScalar dt2 = 0.01*mesh.dx/(u2+c2);
+
+    PetscScalar l1 = 0.5*(u1+u2)*dt2/mesh.dx;
+    PetscScalar l2 = 0.5*(u1+u2+c1+c2)*dt2/mesh.dx;
+    PetscScalar l3 = 0.5*(u1+u2-c1-c2)*dt2/mesh.dx;
+
+    PetscScalar R1 = -l1*(r2-r1-(1/pow(c2,2))*(p2-p1));
+    PetscScalar R2 = -l2*(p2-p1+r2*c2*(u2-u1));
+    PetscScalar R3 = -l3*(p2-p1-r2*c2*(u2-u1));
 
     PetscScalar me = (u1+u2)/(c1+c2);
 
-    if(me<1)
+    PetscScalar dp;
+    if(me>1)
     {
-      p2 = p_exit;
-      r2 = r1 + (p2 - p1)/(pow(c1,2));
-      u2 = u1 + (p1 - p2)/(r1*c1);
-      PetscScalar E2 = p2/(gamma-1) + 0.5*r2*pow(u2,2);
-
-      // Temporarily storing it in welem to be used in Jacobian update
-      welem[0] = r2;
-      welem[1] = r2*u2;
-      welem[2] = E2; 
+      dp = 0.5*(R2+R3);
     }
     else{
-      welem[0] = wb[0];
-      welem[1] = wb[1];
-      welem[2] = wb[2];
+      dp = 0.0;
     }
 
+    PetscScalar dr = R1 + dp/(pow(c2,2));
+    PetscScalar du = (R2-dp)/(r2*c2);
 
+    // Update the last element
+    r2 = r2 + dr;
+    u2 = u2 + du;
+    p2 = p2 + dp;
+    T2 = p2/(R*r2);
+    PetscScalar E2 = r2*(cv*T2 + 0.5*pow(u2,2));
+
+
+    welem[0] = r2;
+    welem[1] = r2*u2;
+    welem[2] = E2;
     return ierr;
   }
 

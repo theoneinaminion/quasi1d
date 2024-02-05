@@ -27,7 +27,7 @@ class Solver{
 
     PetscScalar dt; /**< Time step*/
     PetscScalar CFL; /**< CFL number*/
-    PetscScalar relax = 0.9; /**< Under Relaxation factor*/
+    PetscScalar relax = 0.01; /**< Under Relaxation factor*/
     PetscScalar restol = 1e-6; /**< Tolerance for Non-Linear solver*/
     PetscInt    maxiter ; /**< Maximum number of iterations for Non-Linear solver*/
 

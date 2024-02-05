@@ -4,6 +4,7 @@ Solver::Solver(flux* flux):flx(flux)
 {
     dt = 1e-6;
     CFL = 10;
+    prev_resnrm = 1000.;
     std::cout << "Setting initial time step to:" << dt<<std::endl;
     std::cout << "Setting initial CFL to:" << CFL<<std::endl;
 
@@ -45,7 +46,7 @@ Solver::~Solver()
 
 void Solver::adapt_time_step()
 {
-    dt = dt*prev_resnrm/resnrm;
+    dt = prev_resnrm/resnrm;
     
 }
 
@@ -163,14 +164,8 @@ PetscErrorCode Solver::update_solution()
     PetscErrorCode ierr;
     PetscInt idx[flx->mesh.nvars], el;
     PetscScalar welem[flx->mesh.nvars], dwelem[flx->mesh.nvars];
-
     for (PetscInt iel = 1; iel < flx->mesh.ngrid-1; iel++)
     {
-        for (int i = 0; i < flx->mesh.nvars; i++)
-        {
-            idx[i] = iel*flx->mesh.nvars + i;
-        }
-        ierr = VecGetValues(flx->w,flx->mesh.nvars,idx,welem); CHKERRQ(ierr);
 
         el = iel-1;
         for (int i = 0; i < flx->mesh.nvars; i++)
@@ -179,6 +174,14 @@ PetscErrorCode Solver::update_solution()
         }
 
         ierr = VecGetValues(dw,flx->mesh.nvars,idx,dwelem); CHKERRQ(ierr);
+
+        for (int i = 0; i < flx->mesh.nvars; i++)
+        {
+            idx[i] = iel*flx->mesh.nvars + i;
+        }
+        ierr = VecGetValues(flx->w,flx->mesh.nvars,idx,welem); CHKERRQ(ierr);
+
+        
         for (int i = 0; i < flx->mesh.nvars; i++)
         {
             welem[i] = welem[i] + relax*dwelem[i];
@@ -267,20 +270,29 @@ PetscErrorCode Solver::solve()
     ierr = setup_ksp(); CHKERRQ(ierr);
     while ((resnrm > restol) && (iter <= maxiter))
     {
-        prev_resnrm = resnrm;
+        
+
         iter = iter + 1;
        
         ierr = flx->assemble_jacobian(dt);CHKERRQ(ierr);
         ierr = compute_residual();CHKERRQ(ierr);
 
-        if ((iter%1000 == 0) || iter < 10)
+        if ((iter%100 == 0) || iter < 10)
+        {
             std::cout << "Non-Linear Residual norm at iteration " << iter << " is: " << (resnrm) << std::endl;
+            //std::cout << "Time step at iteration " << iter << " is: " << (dt) << std::endl;
+        }    
         
         ierr = KSPSolve(ksp, res, dw); CHKERRQ(ierr);
         
         ierr = update_solution(); CHKERRQ(ierr);
+        if (iter==10)
+        {
+           writePetscObj(flx->A,"A");
+        }
         //writePetscObj(flx->A,"A");
         adapt_time_step();
+        prev_resnrm = resnrm;
         ierr = flx->conserved_to_primitive(); CHKERRQ(ierr); 
     }
       
