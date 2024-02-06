@@ -1,7 +1,0 @@
-digraph "flow"
-{
- // LATEX_PDF_SIZE
-  edge [fontname="Helvetica",fontsize="10",labelfontname="Helvetica",labelfontsize="10"];
-  node [fontname="Helvetica",fontsize="10",shape=record];
-  Node1 [label="{flow\n|+ p\l+ T\l+ rho\l+ u\l+ c\l+ E\l+ M\l+ p_exit\l+ T_exit\l+ rho_exit\land 21 more...\l|+ flow()\l+ ~flow()\l}",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black",tooltip=" "];
-}

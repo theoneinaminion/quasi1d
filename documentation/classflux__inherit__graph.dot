@@ -1,9 +1,0 @@
-digraph "flux"
-{
- // LATEX_PDF_SIZE
-  edge [fontname="Helvetica",fontsize="10",labelfontname="Helvetica",labelfontsize="10"];
-  node [fontname="Helvetica",fontsize="10",shape=record];
-  Node1 [label="{flux\n|+ f\l+ w\l+ q\l+ A\l+ mesh\l+ felem\l+ welem\l+ qelem\l+ wb\l+ Jel\l+ Qel\l+ Jb\l+ epsilon\l+ pert\l|+ flux()\l+ ~flux()\l+ initialize_primitives()\l+ element_flux()\l+ element_conservative()\l+ assemble_flux_vec()\l+ assemble_conservative\l_vec()\l+ conserved_to_primitive()\l+ element_source()\l+ assemble_source_vec()\land 9 more...\l}",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black",tooltip=" "];
-  Node2 -> Node1 [dir="back",color="midnightblue",fontsize="10",style="solid",arrowtail="onormal",fontname="Helvetica"];
-  Node2 [label="{flow\n|+ p\l+ T\l+ rho\l+ u\l+ c\l+ E\l+ M\l+ p_exit\l+ T_exit\l+ rho_exit\land 21 more...\l|+ flow()\l+ ~flow()\l}",height=0.2,width=0.4,color="grey75", fillcolor="white", style="filled",URL="$classflow.html",tooltip=" "];
-}

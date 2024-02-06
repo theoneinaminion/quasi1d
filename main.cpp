@@ -21,8 +21,9 @@ int main(int argc,char **argv){
     PetscErrorCode ierr;
 
     Mesh msh;
+    msh.ngrid = 200; //Changes mesh size
     msh.generate_grid();
-    PetscScalar pr = 0.8; // Pressure ratio
+    PetscScalar pr = 0.6; // Pressure ratio
     flux flx(msh,pr);
     Solver slv(&flx);
     

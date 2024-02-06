@@ -24,7 +24,7 @@ class Mesh {
 
     PetscScalar x_max = 1.; /**< domain begins*/
     PetscScalar x_min = 0.; /**< domain ends*/
-    PetscInt    ngrid = 50; /**< total grid points*/
+    PetscInt    ngrid; /**< total grid points*/
     PetscInt    nvars = 3; /**< total conservatives variables for Quasi 1D*/
     PetscScalar dx; /**< grid spacing*/
 
