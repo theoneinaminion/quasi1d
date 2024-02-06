@@ -79,24 +79,9 @@ flow::flow(const Mesh &msh, const PetscScalar p_ratio) {
     c_t = sqrt(gamma*R*T_t); //Total speed of sound
     E_tot = p_t/(gamma-1) + init_mach*rho_t*pow(0.5*c_t,2); //Total energy when velocity = 0.5*ct
 
-    p_sc = 1;//p_t;
-    T_sc = 1;//T_t;
-    rho_sc = 1;//rho_t;
 
-    //Performing the scaling operation
-    p_t           = p_t/p_sc;
-    T_t           = T_t/T_sc;
-    rho_t         = rho_t/rho_sc; 
-
-    R_sc         = 1; //p_sc/(rho_sc*T_sc);
-    R            = R/R_sc;      
-    cp           = gamma*R/(gamma-1);    /**< cp corresponding to scaled R*/
-
-    u_sc        = 1; //sqrt(p_sc/rho_sc);
-    c_t         = c_t/u_sc;  
-
-    E_sc        = 1; //rho_sc*pow(u_sc,2);
-    E_tot       = E_tot/E_sc;
+         
+    cp           = gamma*R/(gamma-1);    /**< cp corresponding to R*/
 
     //Set exit pressure for boundary conditions
     p_exit = pr*p_t;

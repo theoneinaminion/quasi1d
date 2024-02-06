@@ -22,7 +22,7 @@ Solver::Solver(flux* flux):flx(flux)
     
     ierr = KSPCreate(PETSC_COMM_WORLD,&ksp);
     if(ierr)
-		std::cout << "Couldn't Create KSP object!\n";
+		std::cout << "Couldn't Create KSP object!\n"; 
     
 
 }
@@ -218,19 +218,19 @@ PetscErrorCode Solver::write_soln()
     PetscErrorCode ierr;
 
     std::filesystem::path dir("data");
-    if (!std::filesystem::exists(dir)) {
+    if (!std::filesystem::exists(dir)) 
+    {
         std::filesystem::create_directory(dir);
-}
+    }
     chdir("data");
     ierr = writePetscObj(flx->M,"mach"); CHKERRQ(ierr);
     ierr = writePetscObj(flx->mesh.xc,"cell_centers"); CHKERRQ(ierr);
     ierr = writePetscObj(flx->p,"pressure"); CHKERRQ(ierr);
     ierr = writePetscObj(flx->rho,"density"); CHKERRQ(ierr);
-    ierr = writePetscObj(dw,"Soln"); CHKERRQ(ierr);
-    ierr = writePetscObj(res,"residual"); CHKERRQ(ierr);
-    ierr = writePetscObj(flx->w,"cons"); CHKERRQ(ierr);
-    ierr = writePetscObj(flx->f,"flux"); CHKERRQ(ierr);
-    ierr = writePetscObj(flx->q,"src"); CHKERRQ(ierr);
+    //ierr = writePetscObj(dw,"Soln"); CHKERRQ(ierr);
+    //ierr = writePetscObj(flx->w,"cons"); CHKERRQ(ierr);
+    //ierr = writePetscObj(flx->f,"flux"); CHKERRQ(ierr);
+    //ierr = writePetscObj(flx->q,"src"); CHKERRQ(ierr);
     return ierr;
 
 }
@@ -286,16 +286,13 @@ PetscErrorCode Solver::solve()
         ierr = KSPSolve(ksp, res, dw); CHKERRQ(ierr);
         
         ierr = update_solution(); CHKERRQ(ierr);
-        if (iter==10)
-        {
-           writePetscObj(flx->A,"A");
-        }
+
         //writePetscObj(flx->A,"A");
         adapt_time_step();
         prev_resnrm = resnrm;
         ierr = flx->conserved_to_primitive(); CHKERRQ(ierr); 
     }
-      
+
    return ierr;
     
 

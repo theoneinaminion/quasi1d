@@ -24,7 +24,7 @@ class Mesh {
 
     PetscScalar x_max = 1.; /**< domain begins*/
     PetscScalar x_min = 0.; /**< domain ends*/
-    PetscInt    ngrid = 200; /**< total grid points*/
+    PetscInt    ngrid = 50; /**< total grid points*/
     PetscInt    nvars = 3; /**< total conservatives variables for Quasi 1D*/
     PetscScalar dx; /**< grid spacing*/
 
@@ -92,17 +92,6 @@ class flow {
     PetscScalar R = 1716;                     /**< Gas constant*/
     PetscScalar cp;                           /**< Total pressure*/
     PetscScalar init_mach = 0.5;              /**< Initial Mach number just to initialize things*/
-
-
-   
-    //Scales 
-    PetscScalar p_sc;                     /**< Pressure scale*/
-    PetscScalar T_sc;                     /**< Temperature scale*/
-    PetscScalar rho_sc;                   /**< Density scale*/
-    PetscScalar u_sc;                     /**< Velocity scale*/
-    PetscScalar E_sc;                     /**< Energy scale*/
-    PetscScalar L_sc = 1.;                /**< Length scale*/
-    PetscScalar R_sc;                     /**< Gas constant scale*/ 
 
 
 };

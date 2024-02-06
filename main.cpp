@@ -27,6 +27,11 @@ int main(int argc,char **argv){
     Solver slv(&flx);
     
     ierr = slv.solve(); CHKERRQ(ierr);
+    PetscScalar pmax, rhomax;
+    ierr = VecMax(slv.flx->p,NULL,&pmax); CHKERRQ(ierr);
+    ierr = VecMax(slv.flx->rho,NULL,&rhomax); CHKERRQ(ierr);
+    
+    std::cout << "Solution written to file" << std::endl;
     ierr = slv.write_soln(); CHKERRQ(ierr); 
     return ierr;
     PetscFinalize();
